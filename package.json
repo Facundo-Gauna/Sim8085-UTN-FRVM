@@ -1,0 +1,6 @@
+{
+  "name": "sim8085",
+  "private": true,
+  "type": "module",
+  "workspaces": ["packages/*"]
+}
