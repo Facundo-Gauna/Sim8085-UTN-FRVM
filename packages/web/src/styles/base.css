@@ -9,3 +9,7 @@ button { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
 }
+
+/* Cabecera de panel con número de referencia (01 REGISTROS, 02 BANDERAS…). */
+.panel-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+.panel-h .caps b { color: var(--accent); font-weight: 600; margin-right: 6px; }

@@ -1,0 +1,79 @@
+/* Paneles 01 REGISTROS y 02 BANDERAS: solo tokens. */
+.regs {
+  padding: 12px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.reg,
+.flag {
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  display: grid;
+  gap: 2px;
+  transition: background-color 0.12s;
+}
+.reg {
+  padding: 8px 10px;
+}
+.reg.wide {
+  grid-column: span 2;
+}
+.reg .k,
+.flag .k {
+  font: 600 11px/14px var(--sans);
+  color: var(--ink-muted);
+  letter-spacing: 0.06em;
+}
+.reg .v {
+  font: 500 18px/24px var(--mono);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.reg.acc .v {
+  font-size: 22px;
+  line-height: 28px;
+}
+.mark {
+  margin-left: 4px;
+  color: var(--ink);
+}
+/* El resaltado persiste hasta el próximo paso: sin temporizadores ni fundido. */
+.reg.changed,
+.flag.changed {
+  background: var(--changed-bg);
+  color: var(--ink);
+}
+.reg.changed .k,
+.flag.changed .k {
+  color: var(--ink);
+}
+.flags {
+  padding: 0 12px 12px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+.flag {
+  text-align: center;
+  padding: 6px 8px;
+}
+.flag .v {
+  font: 500 16px/22px var(--mono);
+}
+.flag.dashed {
+  border-style: dotted;
+}
+.flag .outside {
+  font-size: 9px;
+  line-height: 12px;
+  letter-spacing: 0.04em;
+}
+@media (max-width: 640px) {
+  .regs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .flags {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
