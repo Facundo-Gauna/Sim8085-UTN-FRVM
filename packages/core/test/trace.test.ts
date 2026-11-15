@@ -19,7 +19,7 @@ describe('buildTrace', () => {
   });
 
   it('bucle infinito: 500 filas y truncated', () => {
-    const { rows, truncated } = buildTrace(assemble('L: JMP L', { start: 0x2000 }), () => {});
+    const { rows, truncated } = buildTrace(assemble('LP: JMP LP', { start: 0x2000 }), () => {});
     expect(rows).toHaveLength(500);
     expect(truncated).toBe(true);
   });
@@ -42,5 +42,19 @@ describe('buildTrace: límite de filas', () => {
     const { rows, truncated } = buildTrace(assemble(nops(500) + '\nHLT', { start: 0x2000 }), () => {});
     expect(rows).toHaveLength(500);
     expect(truncated).toBe(true);
+  });
+});
+
+describe('buildTrace: error de ejecución (M4)', () => {
+  it('opcode inválido: error con el mensaje y truncated false', () => {
+    const t = buildTrace(assemble('NOP\nDB 08H', { start: 0x2000 }), () => {});
+    expect(t.rows).toHaveLength(1);
+    expect(t.truncated).toBe(false);
+    expect(t.error).toBe('Opcode inválido 08h en 2001h');
+  });
+
+  it('sin error no hay campo error', () => {
+    const t = buildTrace(assemble('HLT'), () => {});
+    expect(t.error).toBeUndefined();
   });
 });

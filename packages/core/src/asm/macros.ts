@@ -18,6 +18,13 @@ interface MacroDef {
   line: number;
 }
 
+/** Registros y operandos reservados: no pueden ser etiquetas, nombres EQU ni macros. */
+export const REGISTER_NAMES: ReadonlySet<string> = new Set(['A', 'B', 'C', 'D', 'E', 'H', 'L', 'M', 'SP', 'PSW']);
+
+/** Mensaje para un nombre reservado usado como etiqueta (`what` = 'etiqueta', 'nombre de macro'). */
+export const reservedNameError = (name: string, what = 'etiqueta'): string =>
+  `«${name}» es un registro y no puede usarse como ${what}`;
+
 const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** Sustituye cada parámetro por su argumento, sólo como palabra completa. */
@@ -103,7 +110,8 @@ export function expandMacros(lines: SourceLine[]): { lines: ExpandedLine[]; mess
       }
       if (!closed) error(def.line, `Falta ENDM para cerrar la macro ${def.name}`);
       if (def.name) {
-        if (macros.has(def.name)) error(def.line, `La macro ${def.name} ya está definida`);
+        if (REGISTER_NAMES.has(def.name)) error(def.line, reservedNameError(def.name, 'nombre de macro'));
+        else if (macros.has(def.name)) error(def.line, `La macro ${def.name} ya está definida`);
         else macros.set(def.name, def);
       }
       continue;

@@ -280,3 +280,111 @@ describe('assemble: punto de entrada (entry)', () => {
     expect(r.entry).toBe(0x14);
   });
 });
+
+describe('assemble: fin de línea (I1)', () => {
+  const lines = ['ORG 2000H', 'MVI A, 1 ; uno', 'LOOP: DCR A', 'JNZ LOOP', 'HLT'];
+  const strip = (r: AssembleResult) => r.rows.map(({ instr: _i, ...rest }) => rest);
+
+  it('CRLF, CR suelto, LF y mezcla dan las mismas filas', () => {
+    const lf = assemble(lines.join('\n'));
+    expect(lf.ok).toBe(true);
+    expect(lf.rows).toHaveLength(4);
+    const crlf = assemble(lines.join('\r\n'));
+    const cr = assemble(lines.join('\r'));
+    const mixed = assemble(`${lines[0]}\r\n${lines[1]}\r${lines[2]}\n${lines[3]}\r\n${lines[4]}`);
+    for (const r of [crlf, cr, mixed]) {
+      expect(r.ok).toBe(true);
+      expect(strip(r)).toEqual(strip(lf));
+    }
+  });
+
+  it("'MVI A, 1\\rHLT' no pierde código", () => {
+    const r = assemble('MVI A, 1\rHLT');
+    expect(r.ok).toBe(true);
+    expect(r.rows.map((x) => x.source)).toEqual(['MVI A, 1', 'HLT']);
+  });
+});
+
+describe('assemble: etiquetas visibles (I2/I3)', () => {
+  const delay = [
+    'RETARDO MACRO',
+    'LP: DCR B',
+    'JNZ LP',
+    'ENDM',
+    'ORG 2000H',
+    'RETARDO',
+    'RETARDO',
+    'FIN: HLT',
+  ].join('\n');
+
+  it('source muestra la etiqueta original (sin @n)', () => {
+    const r = assemble(delay);
+    expect(r.ok).toBe(true);
+    expect(r.rows.map((x) => x.source)).toEqual(['DCR B', 'JNZ LP', 'DCR B', 'JNZ LP', 'HLT']);
+    expect(r.rows[0]!.label).toBe('LP');
+    expect(r.rows[2]!.label).toBe('LP');
+  });
+
+  it('labels: nombres visibles; las locales ambiguas se omiten', () => {
+    const r = assemble(delay);
+    expect(r.symbols.get('LP@1')).toBe(0x2000);
+    expect(r.symbols.get('LP@2')).toBe(0x2004);
+    expect([...r.labels]).toEqual([['FIN', 0x2008]]);
+    const once = assemble('RETARDO MACRO\nLP: DCR B\nJNZ LP\nENDM\nDATO EQU 40H\nRETARDO\nHLT');
+    expect(once.labels.get('LP')).toBe(0);
+    expect(once.labels.get('DATO')).toBe(0x40);
+    expect([...once.labels.keys()].some((k) => k.includes('@'))).toBe(false);
+  });
+
+  it('etiqueta sola en una línea pasa a la instrucción siguiente', () => {
+    const r = assemble('L1:\n DCR B\n JNZ L1');
+    expect(r.ok).toBe(true);
+    expect(r.rows[0]).toMatchObject({ line: 2, label: 'L1', source: 'DCR B' });
+    expect(r.rows[0]!.labels).toBeUndefined();
+    expect(r.rows[1]!.label).toBeUndefined();
+  });
+
+  it('etiqueta en la misma línea', () => {
+    const r = assemble('L1: DCR B');
+    expect(r.rows[0]).toMatchObject({ label: 'L1' });
+  });
+
+  it('el comentario de la etiqueta sola pasa si la instrucción no tiene', () => {
+    const a = assemble('LOOP: ; inicio bucle\n DCR B\n JNZ LOOP');
+    expect(a.rows[0]).toMatchObject({ label: 'LOOP', comment: 'inicio bucle' });
+    const b = assemble('LOOP: ; inicio bucle\n DCR B ; propio\n JNZ LOOP');
+    expect(b.rows[0]).toMatchObject({ label: 'LOOP', comment: 'propio' });
+  });
+
+  it('etiquetas apiladas en una dirección', () => {
+    const r = assemble('A1:\nA2: ; c\nA3: NOP');
+    expect(r.rows[0]).toMatchObject({ label: 'A1', labels: ['A1', 'A2', 'A3'], comment: 'c' });
+  });
+
+  it('una etiqueta antes de ORG o DS no pasa a otra dirección', () => {
+    const r = assemble('X:\nORG 10H\nNOP\nY: DS 2\nHLT');
+    expect(r.rows[0]!.label).toBeUndefined();
+    expect(r.rows[1]!.label).toBeUndefined();
+  });
+
+  it('llamada a macro con etiqueta y comentario', () => {
+    const r = assemble('SUMA MACRO\nADI 1\nENDM\nINI: SUMA ; suma uno\nHLT');
+    expect(r.ok).toBe(true);
+    expect(r.rows[0]).toMatchObject({ line: 4, label: 'INI', comment: 'suma uno', fromMacro: 'SUMA' });
+  });
+});
+
+describe('assemble: nombres reservados (M2)', () => {
+  it('L: NOP es error', () => {
+    const r = assemble('L: NOP');
+    expect(r.ok).toBe(false);
+    expect(errors(r)[0]).toMatchObject({ line: 1, message: '«L» es un registro y no puede usarse como etiqueta' });
+  });
+
+  it('EQU, macro y etiqueta local con nombre de registro', () => {
+    expect(errors(assemble('SP EQU 5'))[0]!.message).toContain('«SP» es un registro');
+    expect(errors(assemble('PSW MACRO\nNOP\nENDM'))[0]!.message).toContain('«PSW» es un registro');
+    const local = assemble('R MACRO\nB: NOP\nENDM\nR');
+    expect(errors(local)[0]).toMatchObject({ line: 4, message: '«B» es un registro y no puede usarse como etiqueta' });
+  });
+});

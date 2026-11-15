@@ -14,18 +14,32 @@ export interface TraceRow {
   Z: 0 | 1; P: 0 | 1; S: 0 | 1; CY: 0 | 1;
 }
 
+export interface TraceResult {
+  rows: TraceRow[];
+  /** true si se cortó por llegar a `maxRows` (no por HLT ni por error). */
+  truncated: boolean;
+  /** Mensaje del error de ejecución (p. ej. opcode inválido) que terminó la traza. */
+  error?: string;
+}
+
 export function buildTrace(
   program: AssembleResult,
   setup: (m: Machine) => void,
   maxRows = 500,
-): { rows: TraceRow[]; truncated: boolean } {
+): TraceResult {
   const m = new Machine(program);
   setup(m);
   const rows: TraceRow[] = [];
   let stopped = false;
+  let error: string | undefined;
   while (rows.length < maxRows) {
     const r = m.step();
-    if (r.reason === 'error' || (r.steps === 0 && r.reason === 'halt')) { stopped = true; break; }
+    if (r.reason === 'error') {
+      error = r.info?.error ?? 'Error de ejecución';
+      stopped = true;
+      break;
+    }
+    if (r.steps === 0 && r.reason === 'halt') { stopped = true; break; }
     const info = r.info;
     // Aceptar una interrupción no es una instrucción: no genera fila.
     if (info && info.instr) {
@@ -42,6 +56,6 @@ export function buildTrace(
     }
     if (m.cpu.halted) { stopped = true; break; }
   }
-  return { rows, truncated: !stopped };
+  return error === undefined ? { rows, truncated: !stopped } : { rows, truncated: false, error };
 }
 

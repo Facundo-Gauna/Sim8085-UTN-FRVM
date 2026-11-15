@@ -68,10 +68,11 @@ export function lexLine(raw: string, line: number): SourceLine {
     rest = rest.slice(m[0].length).trim();
   }
 
-  let om = /^(\S+)\s*(.*)$/.exec(rest);
+  // [\s\S] y no `.`: un `\r` suelto en la línea no debe hacer fallar el patrón.
+  let om = /^(\S+)\s*([\s\S]*)$/.exec(rest);
   if (om && !result.label) {
     const first = (om[1] ?? '').toUpperCase();
-    const om2 = /^(\S+)\s*(.*)$/.exec(om[2] ?? '');
+    const om2 = /^(\S+)\s*([\s\S]*)$/.exec(om[2] ?? '');
     if (!KNOWN.has(first) && /^[A-Z_][A-Z0-9_]*$/.test(first) && om2 && NAMED_DIRECTIVES.has((om2[1] ?? '').toUpperCase())) {
       result.label = first;
       om = om2;

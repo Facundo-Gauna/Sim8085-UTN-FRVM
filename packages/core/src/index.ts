@@ -21,6 +21,6 @@ export type { Bus, StepInfo } from './cpu/execute';
 export { Machine } from './machine/machine';
 export type { StopReason, OutEvent, RunResult, Change, Irq } from './machine/machine';
 export { buildTrace } from './machine/trace';
-export type { TraceRow } from './machine/trace';
+export type { TraceRow, TraceResult } from './machine/trace';
 export { computeMetrics, diffMetrics } from './machine/metrics';
 export type { Metrics } from './machine/metrics';

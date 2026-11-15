@@ -40,6 +40,8 @@ const REGS = ['A', 'B', 'C', 'D', 'E', 'H', 'L', 'SP', 'PC'] as const;
 const FLAGS: readonly FlagName[] = ['S', 'Z', 'AC', 'P', 'CY'];
 const IRQ_KEY = { TRAP: 'trap', 'RST7.5': 'r75', 'RST6.5': 'r65', 'RST5.5': 'r55' } as const;
 const NO_BYTES = 'Esa línea no genera instrucciones';
+const NOT_ASSEMBLED =
+  'El programa tiene errores de ensamblado: no se puede ejecutar. Corregí los errores primero.';
 
 /** Copia profunda de CpuState (a mano: structuredClone es ~10x más lento por paso). */
 function cloneCpu(s: CpuState): CpuState {
@@ -59,7 +61,7 @@ export class Machine {
   private _tStates = 0;
   private _executed = 0;
   /** Datos iniciales del alumno (dirección → byte), aplicados DESPUÉS de la imagen del programa. */
-  private readonly userData = new Map<number, number>();
+  private readonly _userData = new Map<number, number>();
   /** Línea fuente → dirección de la primera instrucción. */
   private readonly breakpoints = new Map<number, number>();
   private history: HistoryEntry[] = [];
@@ -69,7 +71,13 @@ export class Machine {
   /** Objetos anidados del CPU cuya identidad se conserva siempre. */
   private readonly objects: Pick<CpuState, 'flags' | 'masks' | 'pending'>;
 
+  /**
+   * Lanza un Error (mensaje en español) si `program.ok` es false: ejecutar un
+   * ensamblado fallido correría huecos de NOP y confundiría al alumno. La UI
+   * debe revisar `ok` antes de crear la Machine.
+   */
   constructor(private readonly program: AssembleResult) {
+    if (!program.ok) throw new Error(NOT_ASSEMBLED);
     this.cpu = initialState(program.entry);
     this.objects = { flags: this.cpu.flags, masks: this.cpu.masks, pending: this.cpu.pending };
     this.bus = {
@@ -93,6 +101,8 @@ export class Machine {
   get executedInstructions(): number { return this._executed; }
   get tStates(): number { return this._tStates; }
   get canBack(): boolean { return this.history.length > 0; }
+  /** Copia de los datos iniciales del alumno (dirección → byte). */
+  get userData(): ReadonlyMap<number, number> { return new Map(this._userData); }
 
   /**
    * Carga un dato inicial del alumno: queda en memoria y se vuelve a aplicar en
@@ -100,12 +110,30 @@ export class Machine {
    * del alumno). No entra al historial: editar la memoria invalida el paso
    * atrás (deshacer pasos sobre memoria editada a mano daría estados que nunca
    * existieron), así que se borra el historial.
+   * Con `value === null` quita el dato de esa dirección: la memoria vuelve al
+   * byte de la imagen del programa (o 0) y también se borra el historial.
    */
-  setMemory(addr: number, value: number): void {
+  setMemory(addr: number, value: number | null): void {
     addr &= 0xffff;
-    value &= 0xff;
-    this.userData.set(addr, value);
-    this.memory[addr] = value;
+    if (value === null) {
+      this._userData.delete(addr);
+      this.memory[addr] = this.imageByte(addr);
+    } else {
+      value &= 0xff;
+      this._userData.set(addr, value);
+      this.memory[addr] = value;
+    }
+    this.history = [];
+  }
+
+  /**
+   * Quita todos los datos del alumno: cada dirección que tenía un dato vuelve
+   * al byte de la imagen del programa (o 0). Borra el historial (paso atrás),
+   * igual que setMemory. El resto de la memoria no se toca.
+   */
+  clearUserData(): void {
+    for (const addr of this._userData.keys()) this.memory[addr] = this.imageByte(addr);
+    this._userData.clear();
     this.history = [];
   }
 
@@ -113,6 +141,8 @@ export class Machine {
    * Punto de corte por línea fuente. Solo vale en líneas que generan
    * instrucciones (no EQU/ORG/DS/DB/DW, etiquetas solas ni comentarios); en una
    * llamada a macro se detiene en la primera instrucción expandida.
+   * Ojo: run() no evalúa el punto de corte antes del primer paso, así que uno
+   * en la instrucción de entrada no detiene con stepCount === 0 (decide la UI).
    */
   setBreakpoint(line: number): { ok: true } | { ok: false; error: string } {
     const row = this.program.rows.find((r) => r.line === line && r.instr !== undefined);
@@ -136,7 +166,9 @@ export class Machine {
   /**
    * Ejecuta hasta HLT, error, punto de corte o `limit` pasos ('pause-limit').
    * El punto de corte se evalúa ANTES de ejecutar cada instrucción, salvo la
-   * primera (así, continuar desde un punto de corte lo pasa).
+   * primera (así, continuar desde un punto de corte lo pasa). Por eso un punto
+   * de corte en la instrucción de entrada no detiene con stepCount === 0; si
+   * hace falta, lo decide la UI (sin cambio de comportamiento acá).
    * Con `limit <= 0` no ejecuta nada y devuelve { reason: 'pause-limit', steps: 0 }.
    */
   run(limit: number = DEFAULT_LIMIT): RunResult {
@@ -182,7 +214,7 @@ export class Machine {
     this.restoreCpu(initialState(this.program.entry));
     this.memory.fill(0);
     for (const [a, v] of this.program.memory) this.memory[a & 0xffff] = v & 0xff;
-    for (const [a, v] of this.userData) this.memory[a] = v;
+    for (const [a, v] of this._userData) this.memory[a] = v;
     this.outputs.length = 0;
     this.touchedMemory.clear();
     this.history = [];
@@ -224,6 +256,11 @@ export class Machine {
       if (after !== w.before) out.push({ kind: 'mem', addr: w.addr, before: w.before, after });
     }
     return out;
+  }
+
+  /** Byte de la imagen del programa en `addr` (0 si el programa no lo usa). */
+  private imageByte(addr: number): number {
+    return (this.program.memory.get(addr) ?? 0) & 0xff;
   }
 
   private result(reason: StopReason, steps: number, info?: StepInfo): RunResult {

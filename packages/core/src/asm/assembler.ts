@@ -3,7 +3,7 @@ import { ISA } from '../isa/table';
 import { findInstr } from '../isa/lookup';
 import { parseNumber } from './numbers';
 import { lexLine } from './lexer';
-import { expandMacros, type AsmMessage, type ExpandedLine } from './macros';
+import { expandMacros, REGISTER_NAMES, reservedNameError, type AsmMessage, type ExpandedLine } from './macros';
 
 export type { AsmMessage } from './macros';
 
@@ -12,8 +12,21 @@ export interface ListingRow {
   line: number;
   address: number;
   bytes: number[];
-  /** Mnemónico normalizado, p. ej. 'LDA 0040H'. */
+  /** Mnemónico normalizado, p. ej. 'LDA 0040H' (etiquetas con su nombre original, sin `@n`). */
   source: string;
+  /**
+   * Etiqueta de la dirección de esta fila, con el nombre que escribió el alumno
+   * (sin `@n`): la de la misma línea o la de una línea con sólo etiqueta (o de
+   * una llamada a macro) que la precede. Si hay varias en la misma dirección es
+   * la primera, y `labels` las tiene todas en orden del fuente.
+   */
+  label?: string;
+  /** Sólo si hay más de una etiqueta en esta dirección. */
+  labels?: string[];
+  /**
+   * Observación de la línea; si la línea no tiene, la de la línea con sólo
+   * etiqueta que la precede (`LOOP: ; inicio bucle`).
+   */
   comment?: string;
   /** Nombre de la macro si la fila viene de una expansión. */
   fromMacro?: string;
@@ -27,7 +40,18 @@ export interface AssembleResult {
   /** En orden de dirección. */
   rows: ListingRow[];
   memory: Map<number, number>;
+  /**
+   * Todos los símbolos con su nombre interno: las etiquetas locales de macro
+   * van renombradas por expansión (LOOP@1, LOOP@2) para poder resolverse.
+   */
   symbols: Map<string, number>;
+  /**
+   * Símbolos con el nombre que ve el alumno (etiquetas y nombres EQU). Las
+   * etiquetas locales de macro aparecen con su nombre original sólo si ese
+   * nombre es único en el programa (una macro llamada dos veces lo vuelve
+   * ambiguo y se omite).
+   */
+  labels: Map<string, number>;
   /** Línea → primera dirección generada. */
   lineToAddress: Map<number, number>;
   /** Dirección de inicio de instrucción → línea. */
@@ -47,7 +71,6 @@ export interface AssembleResult {
 
 const MAX_COMMENT = 80;
 const VALUE_KINDS = new Set(['d8', 'd16', 'addr', 'port']);
-const REGISTER_NAMES = new Set(['A', 'B', 'C', 'D', 'E', 'H', 'L', 'M', 'SP', 'PSW']);
 const SINGLE_REGS = new Set(['A', 'B', 'C', 'D', 'E', 'H', 'L', 'M']);
 const BY_MNEMONIC: ReadonlyMap<string, InstrDef[]> = (() => {
   const m = new Map<string, InstrDef[]>();
@@ -58,6 +81,9 @@ const BY_MNEMONIC: ReadonlyMap<string, InstrDef[]> = (() => {
   }
   return m;
 })();
+
+/** Nombre que ve el alumno: sin el sufijo `@n` de las etiquetas locales de macro. */
+const visible = (name: string): string => name.replace(/@\d+$/, '');
 
 const hex = (n: number, digits: number): string => n.toString(16).toUpperCase().padStart(digits, '0');
 
@@ -137,12 +163,16 @@ interface Planned {
   line: ExpandedLine;
   address: number;
   def?: InstrDef;
+  /** Etiquetas (nombre visible) de esta dirección, en orden del fuente. */
+  labels: string[];
+  /** Observación de una línea con sólo etiqueta que precede a esta. */
+  labelComment?: string;
 }
 
 /** Ensambla un programa del 8085 en dos pasadas (más la expansión de macros). */
 export function assemble(source: string, opts: { start?: number } = {}): AssembleResult {
   const origin = opts.start ?? 0;
-  const raw = source.split(/\r?\n/).map((text, i) => lexLine(text, i + 1));
+  const raw = source.split(/\r\n|\r|\n/).map((text, i) => lexLine(text, i + 1));
   const expanded = expandMacros(raw);
   const messages: AsmMessage[] = [...expanded.messages];
   const error = (line: number, message: string) => messages.push({ line, severity: 'error', message });
@@ -162,13 +192,29 @@ export function assemble(source: string, opts: { start?: number } = {}): Assembl
   let pc = origin;
   let overflowReported = false;
 
-  const define = (name: string, value: number, line: number) => {
+  const define = (name: string, value: number, line: number): boolean => {
+    if (REGISTER_NAMES.has(visible(name))) {
+      error(line, reservedNameError(visible(name)));
+      return false;
+    }
     if (symbols.has(name)) {
       error(line, `La etiqueta ${name} ya está definida (línea ${symbolLine.get(name)})`);
-      return;
+      return false;
     }
     symbols.set(name, value);
     symbolLine.set(name, line);
+    return true;
+  };
+  /** Etiquetas definidas que esperan la próxima fila (se pegan si cae en su dirección). */
+  let pendingLabels: Array<{ name: string; address: number; comment?: string }> = [];
+  const plan = (l: ExpandedLine, def?: InstrDef) => {
+    const here = pendingLabels.filter((x) => x.address === pc);
+    const p: Planned = { line: l, address: pc, labels: here.map((x) => x.name) };
+    if (def) p.def = def;
+    const c = here.find((x) => x.comment !== undefined)?.comment;
+    if (c !== undefined) p.labelComment = c;
+    planned.push(p);
+    pendingLabels = [];
   };
   /** Valor que debe conocerse ya en la pasada 1 (ORG, EQU, DS). */
   const evalNow = (l: ExpandedLine, what: string): number | undefined => {
@@ -197,7 +243,11 @@ export function assemble(source: string, opts: { start?: number } = {}): Assembl
       if (v !== undefined) define(l.label, v, l.line);
       continue;
     }
-    if (l.label) define(l.label, pc, l.line);
+    if (l.label && define(l.label, pc, l.line)) {
+      const pending: { name: string; address: number; comment?: string } = { name: visible(l.label), address: pc };
+      if (!l.op && l.comment !== undefined) pending.comment = l.comment;
+      pendingLabels.push(pending);
+    }
     if (!l.op) continue;
     switch (l.op) {
       case 'ORG': {
@@ -213,14 +263,14 @@ export function assemble(source: string, opts: { start?: number } = {}): Assembl
       case 'DB':
       case 'DW': {
         if (l.args.length === 0) { error(l.line, `${l.op} necesita al menos un valor`); break; }
-        planned.push({ line: l, address: pc });
+        plan(l);
         advance(l, l.op === 'DB' ? dbSize(l.args) : 2 * l.args.length);
         break;
       }
       default: {
         const m = matchForm(l.op, l.args);
         if ('error' in m) { error(l.line, m.error); break; }
-        planned.push({ line: l, address: pc, def: m.def });
+        plan(l, m.def);
         advance(l, m.def.size);
       }
     }
@@ -279,10 +329,13 @@ export function assemble(source: string, opts: { start?: number } = {}): Assembl
       line: l.line,
       address: p.address,
       bytes,
-      source: l.args.length ? `${l.op} ${l.args.join(', ')}` : l.op!,
+      source: l.args.length ? `${l.op} ${l.args.map(visible).join(', ')}` : l.op!,
       inCatedra: instr !== undefined && l.fromMacro === undefined,
     };
+    if (p.labels.length > 0) row.label = p.labels[0]!;
+    if (p.labels.length > 1) row.labels = p.labels;
     if (l.comment !== undefined) row.comment = l.comment;
+    else if (p.labelComment !== undefined) row.comment = p.labelComment;
     if (l.fromMacro !== undefined) row.fromMacro = l.fromMacro;
     if (instr) row.instr = instr;
     rows.push(row);
@@ -330,12 +383,21 @@ export function assemble(source: string, opts: { start?: number } = {}): Assembl
   rows.sort((a, b) => a.address - b.address);
   const empty = start === Infinity;
 
+  // Nombres visibles: los locales de macro sólo si su nombre original es único.
+  const count = new Map<string, number>();
+  for (const name of symbols.keys()) count.set(visible(name), (count.get(visible(name)) ?? 0) + 1);
+  const labels = new Map<string, number>();
+  for (const [name, value] of symbols) {
+    if (name === visible(name) || count.get(visible(name)) === 1) labels.set(visible(name), value);
+  }
+
   return {
     ok: !messages.some((m) => m.severity === 'error'),
     messages: messages.sort((a, b) => a.line - b.line),
     rows,
     memory: new Map([...memory].sort((a, b) => a[0] - b[0])),
     symbols,
+    labels,
     lineToAddress,
     addressToLine,
     entry,

@@ -73,3 +73,11 @@ describe('lexLine', () => {
     expect(lexLine('jmp bucle', 16).args).toEqual(['BUCLE']);
   });
 });
+
+describe('lexLine: \\r suelto (I1)', () => {
+  it('un \\r en medio de la línea no hace perder la instrucción', () => {
+    const l = lexLine('MVI A,\r 1', 1);
+    expect(l.op).toBe('MVI');
+    expect(l.args).toEqual(['A', '1']);
+  });
+});

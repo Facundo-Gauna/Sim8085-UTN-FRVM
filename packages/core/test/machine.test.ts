@@ -528,3 +528,56 @@ describe('Machine: casos límite', () => {
     expect(m.cpu.PC).toBe(0);
   });
 });
+
+describe('Machine: datos del alumno (I4)', () => {
+  const PROG = 'ORG 2000H\nLDA 0040H\nHLT';
+
+  it('userData expone una copia de los datos cargados', () => {
+    const m = load(PROG);
+    m.setMemory(0x40, 0x3a);
+    m.setMemory(0x41, 0x1ff);
+    expect([...m.userData]).toEqual([[0x40, 0x3a], [0x41, 0xff]]);
+    (m.userData as Map<number, number>).clear();
+    expect(m.userData.size).toBe(2);
+  });
+
+  it('setMemory(addr, null) quita un dato: vuelve la imagen del programa o 0; borra historial', () => {
+    const m = load(PROG);
+    m.setMemory(0x40, 0x3a);
+    m.setMemory(0x2000, 0x00);
+    m.step();
+    expect(m.canBack).toBe(true);
+    m.setMemory(0x2000, null);
+    expect(m.memory[0x2000]).toBe(0x3a);
+    expect(m.canBack).toBe(false);
+    m.setMemory(0x40, null);
+    expect(m.memory[0x40]).toBe(0);
+    expect(m.userData.size).toBe(0);
+    m.reset();
+    expect(m.memory[0x40]).toBe(0);
+  });
+
+  it('clearUserData() borra todo, restaura memoria y borra historial', () => {
+    const m = load(PROG);
+    m.setMemory(0x40, 0x3a);
+    m.setMemory(0x2003, 0x00);
+    m.step();
+    m.clearUserData();
+    expect(m.userData.size).toBe(0);
+    expect(m.memory[0x40]).toBe(0);
+    expect(m.memory[0x2003]).toBe(0x76);
+    expect(m.canBack).toBe(false);
+    m.reset();
+    expect(m.memory[0x40]).toBe(0);
+  });
+});
+
+describe('Machine: programa con errores (M1)', () => {
+  it('lanza un error en español si program.ok es false', () => {
+    const r = assemble('MVI A');
+    expect(r.ok).toBe(false);
+    expect(() => new Machine(r)).toThrow(
+      'El programa tiene errores de ensamblado: no se puede ejecutar. Corregí los errores primero.',
+    );
+  });
+});
