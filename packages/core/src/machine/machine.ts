@@ -51,6 +51,8 @@ export class Machine {
   /** Valores que leerá IN (puerto → byte), cargados por el alumno. Sobreviven a reset(). */
   inputs = new Map<number, number>();
   readonly outputs: OutEvent[] = [];
+  /** Direcciones de DATO leídas o escritas desde el último reset() (sin fetches); para las métricas. */
+  readonly touchedMemory = new Set<number>();
 
   private _stepCount = 0;
   private _tStates = 0;
@@ -177,6 +179,7 @@ export class Machine {
     for (const [a, v] of this.program.memory) this.memory[a & 0xffff] = v & 0xff;
     for (const [a, v] of this.userData) this.memory[a] = v;
     this.outputs.length = 0;
+    this.touchedMemory.clear();
     this.history = [];
     this._stepCount = 0;
     this._tStates = 0;
@@ -253,6 +256,8 @@ export class Machine {
       stepCount: this._stepCount,
     });
     if (this.history.length > HISTORY_LIMIT) this.history.shift();
+    if (info.memRead !== undefined) this.touchedMemory.add(info.memRead);
+    if (info.memWrite !== undefined) this.touchedMemory.add(info.memWrite);
     this._tStates += info.tStates;
     this._stepCount++;
     return { kind: 'ok', info };
