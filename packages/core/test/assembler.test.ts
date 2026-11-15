@@ -48,6 +48,13 @@ describe('assemble: programa básico', () => {
     expect(r.start).toBe(0x3000);
   });
 
+  it('sizeBytes cuenta sólo los bytes emitidos (huecos entre ORG no suman)', () => {
+    const r = assemble('ORG 2000H\nNOP\nORG 3000H\nHLT');
+    expect(r.sizeBytes).toBe(2);
+    expect(r.start).toBe(0x2000);
+    expect(r.end).toBe(0x3000);
+  });
+
   it('referencia hacia adelante', () => {
     const r = assemble('ORG 2000H\nJMP FIN\nNOP\nFIN: HLT');
     expect(r.ok).toBe(true);
@@ -139,6 +146,38 @@ describe('assemble: macros', () => {
     const b = assemble('M1 MACRO\nM1\nENDM\nM1');
     expect(errors(b)[0]!.message).toContain('recursión de macro');
     expect(errors(b)[0]!.line).toBe(4);
+  });
+
+  it('la etiqueta de la llamada no pisa la etiqueta del cuerpo', () => {
+    const r = assemble('R MACRO\nLOOP: DCR B\nJNZ LOOP\nENDM\nINI: R');
+    expect(r.ok).toBe(true);
+    expect(r.symbols.get('INI')).toBe(0);
+    expect(r.symbols.get('LOOP@1')).toBe(0);
+    expect(bytesAt(r, 0, 4)).toEqual([0x05, 0xc2, 0x00, 0x00]);
+  });
+
+  it('etiquetas locales: la misma macro con bucle se llama dos veces', () => {
+    const r = assemble([
+      'RETARDO MACRO',
+      'LOOP: DCR B',
+      'JNZ LOOP',
+      'JMP FIN',
+      'ENDM',
+      'ORG 2000H',
+      'RETARDO',
+      'RETARDO',
+      'FIN: HLT',
+    ].join('\n'));
+    expect(r.ok).toBe(true);
+    expect(r.symbols.get('LOOP@1')).toBe(0x2000);
+    expect(r.symbols.get('LOOP@2')).toBe(0x2007);
+    // JNZ de cada expansión apunta a su propio bucle; FIN (global) no se renombra.
+    expect(bytesAt(r, 0x2000, 15)).toEqual([
+      0x05, 0xc2, 0x00, 0x20, 0xc3, 0x0e, 0x20,
+      0x05, 0xc2, 0x07, 0x20, 0xc3, 0x0e, 0x20,
+      0x76,
+    ]);
+    expect(r.rows[2]!.source).toBe('JMP FIN');
   });
 
   it('cantidad de parámetros incorrecta', () => {

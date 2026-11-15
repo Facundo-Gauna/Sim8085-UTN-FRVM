@@ -35,6 +35,7 @@ export interface AssembleResult {
   /** Primer y último byte emitido. */
   start: number;
   end: number;
+  /** Cantidad de bytes emitidos (los huecos entre bloques ORG no cuentan). */
   sizeBytes: number;
 }
 
@@ -331,6 +332,6 @@ export function assemble(source: string, opts: { start?: number } = {}): Assembl
     addressToLine,
     start: empty ? origin : start,
     end: empty ? origin : end,
-    sizeBytes: empty ? 0 : end - start + 1,
+    sizeBytes: memory.size,
   };
 }
