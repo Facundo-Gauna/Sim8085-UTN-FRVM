@@ -21,7 +21,7 @@ export type Change =
   | { kind: 'flag'; name: FlagName; before: 0 | 1; after: 0 | 1 }
   | { kind: 'mem'; addr: number; before: number; after: number };
 
-type Irq = 'TRAP' | 'RST7.5' | 'RST6.5' | 'RST5.5';
+export type Irq = 'TRAP' | 'RST7.5' | 'RST6.5' | 'RST5.5';
 
 interface HistoryEntry {
   /** Copia profunda del CPU antes del paso. */
@@ -31,6 +31,7 @@ interface HistoryEntry {
   outputsLength: number;
   tStates: number;
   stepCount: number;
+  executedInstructions: number;
 }
 
 const HISTORY_LIMIT = 10_000;
@@ -56,6 +57,7 @@ export class Machine {
 
   private _stepCount = 0;
   private _tStates = 0;
+  private _executed = 0;
   /** Datos iniciales del alumno (dirección → byte), aplicados DESPUÉS de la imagen del programa. */
   private readonly userData = new Map<number, number>();
   /** Línea fuente → dirección de la primera instrucción. */
@@ -87,6 +89,8 @@ export class Machine {
   }
 
   get stepCount(): number { return this._stepCount; }
+  /** Instrucciones ejecutadas (sin contar los pasos de aceptación de interrupción). */
+  get executedInstructions(): number { return this._executed; }
   get tStates(): number { return this._tStates; }
   get canBack(): boolean { return this.history.length > 0; }
 
@@ -165,6 +169,7 @@ export class Machine {
     this.outputs.length = h.outputsLength;
     this._tStates = h.tStates;
     this._stepCount = h.stepCount;
+    this._executed = h.executedInstructions;
     return true;
   }
 
@@ -182,6 +187,7 @@ export class Machine {
     this.touchedMemory.clear();
     this.history = [];
     this._stepCount = 0;
+    this._executed = 0;
     this._tStates = 0;
   }
 
@@ -254,12 +260,14 @@ export class Machine {
       outputsLength,
       tStates: this._tStates,
       stepCount: this._stepCount,
+      executedInstructions: this._executed,
     });
     if (this.history.length > HISTORY_LIMIT) this.history.shift();
     if (info.memRead !== undefined) this.touchedMemory.add(info.memRead);
     if (info.memWrite !== undefined) this.touchedMemory.add(info.memWrite);
     this._tStates += info.tStates;
     this._stepCount++;
+    if (info.instr) this._executed++;
     return { kind: 'ok', info };
   }
 

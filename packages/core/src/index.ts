@@ -19,7 +19,7 @@ export { execute, acceptInterrupt } from './cpu/execute';
 export type { Bus, StepInfo } from './cpu/execute';
 
 export { Machine } from './machine/machine';
-export type { StopReason, OutEvent, RunResult, Change } from './machine/machine';
+export type { StopReason, OutEvent, RunResult, Change, Irq } from './machine/machine';
 export { buildTrace } from './machine/trace';
 export type { TraceRow } from './machine/trace';
 export { computeMetrics, diffMetrics } from './machine/metrics';

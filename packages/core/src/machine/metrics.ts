@@ -21,7 +21,7 @@ const IMPLICIT_A = new Set([
 ]);
 /** Usan HL (y DE en XCHG) sin nombrarlos. */
 const IMPLICIT: Record<string, string[]> = {
-  LHLD: ['H', 'L'], SHLD: ['H', 'L'], PCHL: ['H', 'L'], SPHL: ['H', 'L'], XTHL: ['H', 'L'],
+  DAD: ['H', 'L'], LHLD: ['H', 'L'], SHLD: ['H', 'L'], PCHL: ['H', 'L'], SPHL: ['H', 'L'], XTHL: ['H', 'L'],
   XCHG: ['D', 'E', 'H', 'L'],
 };
 const PAIR: Record<string, string[]> = { B: ['B', 'C'], D: ['D', 'E'], H: ['H', 'L'] };
@@ -48,7 +48,7 @@ export function computeMetrics(program: AssembleResult, m: Machine): Metrics {
   return {
     sizeBytes: program.sizeBytes,
     range: [program.start, program.end],
-    executed: m.stepCount,
+    executed: m.executedInstructions,
     tStates: m.tStates,
     registersUsed: [...regs].sort(),
     memoryUsed: [...m.touchedMemory].sort((a, b) => a - b),

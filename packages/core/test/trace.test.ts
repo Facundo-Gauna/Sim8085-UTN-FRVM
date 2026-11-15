@@ -30,3 +30,17 @@ describe('buildTrace', () => {
     expect(rows[1]).toMatchObject({ memAddr: 0x50, memValue: 7, M: 7, H: 0, L: 0x50 });
   });
 });
+
+describe('buildTrace: límite de filas', () => {
+  const nops = (n: number) => Array(n).fill('NOP').join('\n');
+  it('HLT como instrucción 500: 500 filas, no truncada', () => {
+    const { rows, truncated } = buildTrace(assemble(nops(499) + '\nHLT', { start: 0x2000 }), () => {});
+    expect(rows).toHaveLength(500);
+    expect(truncated).toBe(false);
+  });
+  it('500 instrucciones y luego HLT: 500 filas, truncada', () => {
+    const { rows, truncated } = buildTrace(assemble(nops(500) + '\nHLT', { start: 0x2000 }), () => {});
+    expect(rows).toHaveLength(500);
+    expect(truncated).toBe(true);
+  });
+});
