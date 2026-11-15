@@ -1,0 +1,12 @@
+/* Panel "→ AHORA": solo tokens. */
+.now { border-top: 1px solid var(--line); }
+.now-body { padding: 12px; display: grid; gap: 6px; }
+.now-body strong { font: 600 15px/22px var(--mono); }
+.now-body p { margin: 0; max-width: 62ch; }
+.now-body p svg { vertical-align: -2px; }
+.flagnote { font-size: 12px; line-height: 18px; color: var(--ink-muted); }
+.now-body .muted { color: var(--ink-muted); }
+.now-body .ok { color: var(--success); }
+.now-body .warn { color: var(--warning); }
+.now-body .err { color: var(--danger); }
+.ac-out { border-bottom: 1px dotted var(--ink-muted); }

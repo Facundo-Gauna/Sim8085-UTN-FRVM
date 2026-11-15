@@ -192,7 +192,9 @@ export function createSession(): StoreApi<Session> {
         }
         // Con un ensamblado a la vista, avisa una vez (sin crear un status nuevo en cada tecla).
         const { asm, stale, status } = get();
-        const warn = asm !== null && (!stale || status?.text !== STALE.text);
+        // Un error vigente no se pisa con el aviso.
+        const canWarn = status === null || status.kind === 'info';
+        const warn = canWarn && asm !== null && (!stale || status?.text !== STALE.text);
         set({ files, stale: true, pausePrompt: false, ...(warn ? { status: STALE } : {}) });
       },
 

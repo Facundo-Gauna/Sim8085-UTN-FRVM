@@ -511,6 +511,17 @@ describe('Task 6 fix ronda 1: stale y puntos de corte', () => {
     expect(st.getState().status).toBeNull();
   });
 
+  it('setText no pisa un error con el aviso de código cambiado', () => {
+    const st = fresh();
+    st.getState().assembleActive();
+    st.getState().toggleBreakpoint(1); // línea de comentario: error
+    const err = st.getState().status;
+    expect(err?.kind).toBe('error');
+    st.getState().setText(st.getState().activeId, `${SAMPLE.text}NOP\n`);
+    expect(st.getState().stale).toBe(true);
+    expect(st.getState().status).toBe(err);
+  });
+
   it('setBreakpointLines reemplaza el conjunto por uno nuevo', () => {
     const st = fresh();
     const lines = new Set([3, 4]);
