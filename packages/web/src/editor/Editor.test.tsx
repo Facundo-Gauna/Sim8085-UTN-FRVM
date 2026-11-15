@@ -1,8 +1,8 @@
-import { act, render } from '@testing-library/react';
+import { act, cleanup, render } from '@testing-library/react';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { undo } from '@codemirror/commands';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { indentLess, undo } from '@codemirror/commands';
 import { buildExtensions, Editor, externalSync, insertTabSpaces } from './Editor';
 import { defaultSession, SAMPLE } from '../state/store';
 
@@ -26,7 +26,16 @@ const zeroRect = () => new DOMRect(0, 0, 0, 0);
 if (!Range.prototype.getClientRects) Range.prototype.getClientRects = emptyRects;
 if (!Range.prototype.getBoundingClientRect) Range.prototype.getBoundingClientRect = zeroRect;
 
-afterEach(() => vi.restoreAllMocks());
+/** Estado inicial de la sesión por defecto: cada prueba arranca desde acá. */
+const INITIAL = defaultSession.getState();
+beforeEach(() => defaultSession.setState(INITIAL, true));
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
+
+const key = (view: EditorView, k: string, keyCode: number, extra: KeyboardEventInit = {}) =>
+  view.contentDOM.dispatchEvent(new KeyboardEvent('keydown', { key: k, keyCode, bubbles: true, cancelable: true, ...extra }));
 
 describe('Editor', () => {
   it('muestra el texto del archivo y colorea el mnemónico', () => {
@@ -74,6 +83,59 @@ describe('Editor', () => {
     expect(v2.state.doc.toString()).toBe('MVI A, 5\n');
   });
 
+  it('una ráfaga de cambios no se pisa con un texto viejo del store', () => {
+    const file = activeFile();
+    const { container } = render(<Editor fileId={file.id} fontSize={16} />);
+    const view = viewIn(container);
+    act(() => {
+      view.dispatch({ changes: { from: 0, insert: 'A' } });
+      view.dispatch({ changes: { from: 1, insert: 'B' } });
+      view.dispatch({ changes: { from: 2, insert: 'C' } });
+    });
+    expect(view.state.doc.toString()).toBe(`ABC${SAMPLE.text}`);
+    expect(activeFile().text).toBe(`ABC${SAMPLE.text}`);
+  });
+
+  it('deshacer no pasa de un archivo a otro', () => {
+    const a = activeFile();
+    act(() => defaultSession.getState().openFile('b.asm', 'HLT\n'));
+    const b = activeFile();
+    const { container, rerender } = render(<Editor fileId={a.id} fontSize={16} />);
+    act(() => viewIn(container).dispatch({ changes: { from: 0, insert: 'NOP\n' } }));
+    rerender(<Editor fileId={b.id} fontSize={16} />);
+    const vb = viewIn(container);
+    expect(undo(vb)).toBe(false);
+    expect(vb.state.doc.toString()).toBe('HLT\n');
+    expect(defaultSession.getState().files.find((f) => f.id === b.id)!.text).toBe('HLT\n');
+  });
+
+  it('un cambio externo del store no se puede deshacer', () => {
+    const file = activeFile();
+    const { container } = render(<Editor fileId={file.id} fontSize={16} />);
+    const view = viewIn(container);
+    act(() => defaultSession.setState({
+      files: defaultSession.getState().files.map((f) => (f.id === file.id ? { ...f, text: 'HLT\n' } : f)),
+    }));
+    expect(undo(view)).toBe(false);
+    expect(view.state.doc.toString()).toBe('HLT\n');
+  });
+
+  it('Escape y luego Tab no inserta espacios (Tab queda para mover el foco)', () => {
+    const file = activeFile();
+    const { container } = render(<Editor fileId={file.id} fontSize={16} />);
+    const view = viewIn(container);
+    act(() => view.dispatch({ selection: { anchor: 0 } }));
+    // Sin Escape, Tab lo toma el editor.
+    key(view, 'Tab', 9);
+    expect(view.state.doc.toString()).toBe(' '.repeat(8) + SAMPLE.text);
+    // Escape activa el modo "Tab mueve el foco" de CodeMirror: el Tab no se consume.
+    key(view, 'Escape', 27);
+    const tab = new KeyboardEvent('keydown', { key: 'Tab', keyCode: 9, bubbles: true, cancelable: true });
+    view.contentDOM.dispatchEvent(tab);
+    expect(tab.defaultPrevented).toBe(false); // el navegador mueve el foco (jsdom no lo hace)
+    expect(view.state.doc.toString()).toBe(' '.repeat(8) + SAMPLE.text);
+  });
+
   it('el tamaño de fuente se acota a 14–20 px', () => {
     const file = activeFile();
     const { container, rerender } = render(<Editor fileId={file.id} fontSize={30} />);
@@ -102,6 +164,26 @@ describe('buildExtensions', () => {
     insertTabSpaces(view);
     expect(view.state.doc.toString().startsWith(' '.repeat(8) + 'MOV')).toBe(true);
     expect(onChange).toHaveBeenLastCalledWith(view.state.doc.toString());
+    view.destroy();
+  });
+
+  it('Tab con selección indenta 8 espacios y Shift-Tab desindenta', () => {
+    const { view } = mount('MOV A, B\nHLT');
+    view.dispatch({ selection: { anchor: 0, head: 12 } });
+    expect(insertTabSpaces(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(`${' '.repeat(8)}MOV A, B\n${' '.repeat(8)}HLT`);
+    expect(indentLess(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe('MOV A, B\nHLT');
+    view.destroy();
+  });
+
+  it('Shift-Tab está ligado a desindentar', () => {
+    const { view } = mount('        HLT');
+    view.dispatch({ selection: { anchor: 9 } });
+    view.contentDOM.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Tab', keyCode: 9, shiftKey: true, bubbles: true, cancelable: true }),
+    );
+    expect(view.state.doc.toString()).toBe('HLT');
     view.destroy();
   });
 

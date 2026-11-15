@@ -1,20 +1,8 @@
 /**
  * Editor de código (CodeMirror 6) sincronizado con la sesión.
  *
- * - Una EditorView por `fileId`: al cambiar de pestaña se destruye y se crea
- *   otra (historial de deshacer propio de cada apertura).
- * - Cada cambio del usuario llama `setText(fileId, texto)`.
- * - Si el texto del store cambia desde afuera (abrir archivo, etc.), se
- *   reemplaza el documento con la anotación `externalSync`, que el listener
- *   ignora: así no hay bucle de realimentación.
- * - Tab inserta espacios hasta la próxima parada de 8 columnas (con selección,
- *   indenta 8 espacios); Shift-Tab desindenta. Para salir del editor con el
- *   teclado: Escape y luego Tab, o Ctrl-M (modo "Tab mueve el foco").
- * - Sin ajuste de línea: las líneas largas se desplazan en horizontal dentro
- *   del editor.
- *
- * Task 6 agrega extensiones (gutter de puntos de corte, decoraciones,
- * autocompletado, hover) en `buildExtensions`.
+ * Tab inserta espacios (hasta la próxima parada de 8 columnas). Para salir
+ * del editor con el teclado: Escape y luego Tab (o Ctrl-M).
  */
 import { useEffect, useRef, type CSSProperties } from 'react';
 import { Annotation, EditorSelection, EditorState, Transaction, type Extension } from '@codemirror/state';
@@ -33,7 +21,6 @@ import {
   historyKeymap,
   indentLess,
   indentMore,
-  temporarilySetTabFocusMode,
 } from '@codemirror/commands';
 import { indentUnit } from '@codemirror/language';
 import { defaultSession, useSession } from '../state/store';
@@ -84,7 +71,6 @@ export function buildExtensions(opts: EditorExtensionOptions): Extension[] {
     indentUnit.of(' '.repeat(TAB_WIDTH)),
     keymap.of([
       { key: 'Tab', run: insertTabSpaces, shift: indentLess },
-      { key: 'Escape', run: temporarilySetTabFocusMode },
       ...defaultKeymap,
       ...historyKeymap,
     ]),
@@ -124,12 +110,14 @@ export function Editor({ fileId, fontSize }: { fileId: string; fontSize: number 
 
   useEffect(() => {
     const view = viewRef.current;
-    if (!view || view.state.doc.toString() === text) return;
+    // Texto actual del store, no el del render: una ráfaga de tecleo no se pisa con uno viejo.
+    const current = textOf(fileId);
+    if (!view || view.state.doc.toString() === current) return;
     view.dispatch({
-      changes: { from: 0, to: view.state.doc.length, insert: text },
+      changes: { from: 0, to: view.state.doc.length, insert: current },
       annotations: [externalSync.of(true), Transaction.addToHistory.of(false)],
     });
-  }, [text]);
+  }, [text, fileId]);
 
   const size = Math.min(FONT_MAX, Math.max(FONT_MIN, Math.round(fontSize)));
   useEffect(() => {

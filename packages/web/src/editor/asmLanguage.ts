@@ -36,8 +36,6 @@ const JUMPS = new Set(
   ISA.filter((d) => d.operands.includes('addr') && /^[JC]/.test(d.mnemonic)).map((d) => d.mnemonic),
 );
 const REGISTERS = new Set(['A', 'B', 'C', 'D', 'E', 'H', 'L', 'M', 'SP', 'PSW']);
-/** Hexa con sufijo H, aunque empiece con letra (`A1H`): se colorea como número. */
-const HEX_ANY = /^[0-9A-F]+H$/i;
 
 type Lexeme = { from: number; to: number; type: 'word' | 'num' | 'string' | 'punct' | 'comment' };
 
@@ -116,10 +114,10 @@ export function tokenizeLine(text: string): AsmToken[] {
       case 'num': kind = 'number'; break;
       case 'word': {
         const w = text.slice(l.from, l.to).toUpperCase();
-        // Tras un salto, un nombre es siempre símbolo para el ensamblador (A1H incluido).
+        // Un número siempre empieza con dígito: `A1H` es un símbolo (el ensamblador
+        // sugiere 0A1H). Tras un salto, el nombre es la etiqueta de destino.
         if (isJump) kind = 'label';
         else if (isMnemonic && REGISTERS.has(w)) kind = 'register';
-        else if (HEX_ANY.test(w)) kind = 'number';
         else kind = 'text';
         break;
       }

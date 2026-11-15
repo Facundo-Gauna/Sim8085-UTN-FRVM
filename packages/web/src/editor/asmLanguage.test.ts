@@ -53,10 +53,27 @@ describe('tokenizeLine (brief)', () => {
 });
 
 describe('tokenizeLine (casos extra)', () => {
-  it('números hex, binarios y decimales; hex que empieza con letra también', () => {
-    for (const n of ['2AH', '0A1H', '00101010B', '42', 'A1H', '0ffh']) {
+  it('números hex, binarios y decimales: siempre empiezan con dígito', () => {
+    for (const n of ['2AH', '0A1H', '0FFFFH', '00101010B', '42', '0ffh']) {
       expect(toks(`MVI B, ${n}`).at(-1)).toEqual([n, 'number']);
     }
+  });
+
+  it('una palabra que empieza con letra nunca es número', () => {
+    for (const w of ['A1H', 'BEACH', 'ADDH', 'EH', 'FACH']) {
+      expect(toks(`MVI B, ${w}`).at(-1)).toEqual([w, 'text']);
+    }
+    expect(toks('MVI A, A1H').at(-1)).toEqual(['A1H', 'text']);
+    expect(toks('MVI A, 0A1H').at(-1)).toEqual(['0A1H', 'number']);
+    expect(toks('JMP BEACH')).toEqual([['JMP', 'mnemonic'], ['BEACH', 'label']]);
+    expect(toks('DATO EQU 0FFH')).toEqual([['DATO', 'label'], ['EQU', 'directive'], ['0FFH', 'number']]);
+    expect(toks('LXI H, TABLA')).toEqual([
+      ['LXI', 'mnemonic'],
+      ['H', 'register'],
+      [',', 'text'],
+      ['TABLA', 'text'],
+    ]);
+    expect(toks('BEACH: NOP')).toEqual([['BEACH:', 'label'], ['NOP', 'mnemonic']]);
   });
 
   it('registros solo como palabra completa y en posición de operando', () => {
