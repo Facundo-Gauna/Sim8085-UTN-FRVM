@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { hasUnsavedContent, installUnloadGuard } from './unloadGuard';
 
 let assigned: unknown[] = [];
@@ -15,21 +15,31 @@ function fire(): BeforeUnloadEvent {
   return e;
 }
 
+const offs: (() => void)[] = [];
+afterEach(() => {
+  while (offs.length) offs.pop()!();
+});
+function install(has: () => boolean): () => void {
+  const off = installUnloadGuard(has);
+  offs.push(off);
+  return off;
+}
+
 describe('installUnloadGuard', () => {
   it('previene la salida cuando hay contenido', () => {
-    const off = installUnloadGuard(() => true);
+    const off = install(() => true);
     const e = fire();
     expect(e.defaultPrevented).toBe(true);
     expect(assigned).toEqual(['']);
     off();
   });
   it('no previene sin contenido', () => {
-    const off = installUnloadGuard(() => false);
+    const off = install(() => false);
     expect(fire().defaultPrevented).toBe(false);
     off();
   });
   it('el desinstalador quita el manejador', () => {
-    const off = installUnloadGuard(() => true);
+    const off = install(() => true);
     off();
     expect(fire().defaultPrevented).toBe(false);
   });

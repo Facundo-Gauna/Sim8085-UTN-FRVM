@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { webFileService } from './fileService';
+import { REVOKE_DELAY_MS, webFileService } from './fileService';
 
 afterEach(() => {
   vi.useRealTimers();
@@ -26,8 +26,34 @@ describe('saveFile', () => {
 
   it('descarga con el nombre y revoca la URL', async () => {
     expect(await save('prog.asm')).toBe('prog.asm');
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:x');
     expect(document.querySelector('a[download]')).toBeNull();
+  });
+  it('revoca la URL solo tras REVOKE_DELAY_MS', async () => {
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const p = webFileService.saveFile('p.asm', 'x');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(document.querySelector('a[download]')).toBeNull();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(REVOKE_DELAY_MS);
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:x');
+    await p;
+  });
+  it.each([
+    ['a.', 'a.asm'],
+    ['.asm', 'programa.asm'],
+    ['a.b.c', 'a.b.c'],
+    ['', 'programa.asm'],
+    ['   ', 'programa.asm'],
+    ['x/y\\z.txt', 'z.txt'],
+    ['a<b>:"|?*c\u0001.asm', 'abc.asm'],
+  ])('normaliza %j -> %j', async (input, expected) => {
+    expect(await save(input)).toBe(expected);
+  });
+  it('limita a 100 caracteres conservando la extension', async () => {
+    const out = await save('a'.repeat(300) + '.txt');
+    expect(out.length).toBe(100);
+    expect(out.endsWith('.txt')).toBe(true);
   });
   it('añade .asm si falta extensión', async () => {
     expect(await save('prog')).toBe('prog.asm');
@@ -68,6 +94,19 @@ describe('openFiles', () => {
       { name: 'b.txt', text: 'hola' },
     ]);
     expect(document.querySelector('input[type=file]')).toBeNull();
+  });
+  it('descarta solo el archivo cuyo FileReader falla', async () => {
+    const orig = FileReader.prototype.readAsText;
+    vi.spyOn(FileReader.prototype, 'readAsText').mockImplementation(function (this: FileReader, blob: Blob) {
+      if ((blob as File).name === 'bad.txt') {
+        queueMicrotask(() => this.onerror?.(new ProgressEvent('error') as ProgressEvent<FileReader>));
+        return;
+      }
+      orig.call(this, blob);
+    });
+    pick([new File(['1'], 'ok.txt'), new File(['2'], 'bad.txt'), new File(['3'], 'ok2.asm')]);
+    const r = await webFileService.openFiles();
+    expect(r.map((f) => f.name)).toEqual(['ok.txt', 'ok2.asm']);
   });
   it('resuelve [] al cancelar', async () => {
     pick('cancel');

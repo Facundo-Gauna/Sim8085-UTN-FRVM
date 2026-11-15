@@ -15,33 +15,61 @@ function readText(file: File): Promise<string> {
   });
 }
 
+export const REVOKE_DELAY_MS = 10_000;
+const MAX_NAME_LENGTH = 100;
+const DEFAULT_BASE = 'programa';
+const DEFAULT_EXT = '.asm';
+
 function normalizeName(name: string): string {
-  const base = name.split(/[\\/]/).pop()?.trim() ?? '';
-  const clean = base === '' ? 'programa' : base;
-  return /\.[^.]+$/.test(clean) ? clean : `${clean}.asm`;
+  const last = name.split(/[\\/]/).pop() ?? '';
+  // eslint-disable-next-line no-control-regex
+  const clean = last.replace(/[\u0000-\u001f\u007f<>:"|?*]/g, '').trim();
+  const dot = clean.lastIndexOf('.');
+  let base = dot === -1 ? clean : clean.slice(0, dot);
+  let ext = dot === -1 ? DEFAULT_EXT : clean.slice(dot);
+  if (ext === '.') ext = DEFAULT_EXT;
+  if (base === '') base = DEFAULT_BASE;
+  base = base.slice(0, Math.max(1, MAX_NAME_LENGTH - ext.length));
+  return base + ext;
 }
+
+let currentInput: HTMLInputElement | null = null;
 
 export const webFileService: FileService = {
   canPickFolder: false,
 
+  /**
+   * Opens a file picker. Never rejects; resolves with [] on cancel. Where the
+   * browser fires no `cancel` event the promise may never settle, so the UI
+   * must never block on it.
+   */
   openFiles() {
     return new Promise((resolve) => {
+      currentInput?.remove();
       const input = document.createElement('input');
       input.type = 'file';
       input.multiple = true;
       input.accept = '.asm,.txt';
       input.style.display = 'none';
       document.body.appendChild(input);
+      currentInput = input;
 
       const finish = (result: { name: string; text: string }[]): void => {
         input.remove();
+        if (currentInput === input) currentInput = null;
         resolve(result);
       };
       input.addEventListener('cancel', () => finish([]));
       input.addEventListener('change', () => {
         const files = Array.from(input.files ?? []).filter((f) => ACCEPTED.test(f.name));
-        Promise.all(files.map(async (f) => ({ name: f.name, text: await readText(f) })))
-          .then(finish, () => finish([]));
+        Promise.all(
+          files.map((f) =>
+            readText(f).then(
+              (text) => ({ name: f.name, text }),
+              () => null,
+            ),
+          ),
+        ).then((r) => finish(r.filter((x): x is { name: string; text: string } => x !== null)));
       });
       input.click();
     });
@@ -56,11 +84,9 @@ export const webFileService: FileService = {
       a.style.display = 'none';
       document.body.appendChild(a);
       a.click();
-      setTimeout(() => {
-        a.remove();
-        URL.revokeObjectURL(url);
-        resolve();
-      }, 0);
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS);
+      resolve();
     });
   },
 };
