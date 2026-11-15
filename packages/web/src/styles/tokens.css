@@ -1,0 +1,30 @@
+/* Tokens de design-system/MASTER.md §2. Claro por defecto; oscuro por sistema o selector manual. */
+:root {
+  --bg: #F4EFE4; --surface: #FBF8F1; --surface-2: #EDE6D8; --ink: #1C1A17; --ink-muted: #5E574C;
+  --line: #DDD4C3; --line-strong: #8A8070; --accent: #C2410C; --on-accent: #FFFFFF;
+  --changed-bg: #FDE68A; --current: #1D4ED8; --danger: #B91C1C; --success: #166534; --warning: #92400E;
+  --syn-reg: #1D4ED8; --syn-num: #7C2D12; --syn-label: #6D28D9; --syn-comment: #3F6212;
+  --chip: #1C1A17; --on-chip: #F4EFE4;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141417; --surface: #1C1C21; --surface-2: #24242A; --ink: #EDE7DB; --ink-muted: #A8A194;
+    --line: #2E2E35; --line-strong: #6B6B75; --accent: #FB7A3C; --on-accent: #141417;
+    --changed-bg: #4A3B0A; --current: #7AA2FF; --danger: #FF7A7A; --success: #4ADE80; --warning: #FBBF24;
+    --syn-reg: #7AA2FF; --syn-num: #FDBA74; --syn-label: #C4B5FD; --syn-comment: #A3C77A;
+    --chip: #EDE7DB; --on-chip: #141417;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141417; --surface: #1C1C21; --surface-2: #24242A; --ink: #EDE7DB; --ink-muted: #A8A194;
+  --line: #2E2E35; --line-strong: #6B6B75; --accent: #FB7A3C; --on-accent: #141417;
+  --changed-bg: #4A3B0A; --current: #7AA2FF; --danger: #FF7A7A; --success: #4ADE80; --warning: #FBBF24;
+  --syn-reg: #7AA2FF; --syn-num: #FDBA74; --syn-label: #C4B5FD; --syn-comment: #A3C77A;
+  --chip: #EDE7DB; --on-chip: #141417;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--ink); }
