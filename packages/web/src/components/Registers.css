@@ -51,7 +51,8 @@
 .flags {
   padding: 0 12px 12px;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  /* AC lleva más ancho para que FUERA DE CÁTEDRA se lea a 11 px. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1fr);
   gap: 8px;
 }
 .flag {
@@ -60,14 +61,14 @@
 }
 .flag .v {
   font: 500 16px/22px var(--mono);
+  font-variant-numeric: tabular-nums;
 }
 .flag.dashed {
   border-style: dotted;
 }
 .flag .outside {
-  font-size: 9px;
-  line-height: 12px;
-  letter-spacing: 0.04em;
+  display: block;
+  overflow-wrap: anywhere;
 }
 @media (max-width: 640px) {
   .regs {

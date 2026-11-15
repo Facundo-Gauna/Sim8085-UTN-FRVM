@@ -41,9 +41,8 @@ describe('Registers', () => {
   it('respeta la base dec y bin', () => {
     assembleSample();
     stepOnce();
-    const { rerender } = render(<Registers />);
+    render(<Registers />);
     act(() => s().setBase('dec'));
-    rerender(<Registers />);
     expect(cell(/^A: 58/).textContent).toContain('58');
     act(() => s().setBase('bin'));
     expect(cell(/^A: 0011 1010/).textContent).toContain('0011 1010');
@@ -58,7 +57,19 @@ describe('Registers', () => {
     expect(m.getAttribute('title')).toBe('M = memoria apuntada por HL (dirección 0000h)');
   });
 
-  it('PC no se marca si no cambió de valor y stepBack mueve el marcador', () => {
+  it('PC se marca en un paso normal y no si el salto cae en sí mismo', () => {
+    assembleSample();
+    stepOnce();
+    const { unmount } = render(<Registers />);
+    expect(cell(/^PC: 2003h \(cambió desde 2000h\)$/).classList.contains('changed')).toBe(true);
+    unmount();
+    loadProgram('LP: JMP LP\n');
+    stepOnce();
+    render(<Registers />);
+    expect(cell(/^PC: 2000h$/).classList.contains('changed')).toBe(false);
+  });
+
+  it('stepBack mueve el marcador de A', () => {
     loadProgram('MVI A,0FFH\nINR A\nHLT\n');
     stepOnce();
     render(<Registers />);
@@ -79,6 +90,46 @@ describe('Registers', () => {
     const r = render(<Registers />);
     expect(r.container.textContent).toContain('—');
     expect(r.container.textContent).not.toContain('3Ah');
+  });
+});
+
+describe('Registers: M', () => {
+  const run = (text: string, steps: number) => {
+    act(() => s().clearUserMemory());
+    loadProgram(text);
+    for (let i = 0; i < steps; i++) stepOnce();
+  };
+
+  it('MOV M,A escribe en M[HL]: 55h cambió desde 00h', () => {
+    run('LXI H,0040H\nMVI A,55H\nMOV M,A\nHLT\n', 3);
+    render(<Registers />);
+    const m = cell(/^M: 55h \(cambió desde 00h\)$/);
+    expect(m.classList.contains('changed')).toBe(true);
+    expect(m.textContent).toContain('•');
+    expect(m.getAttribute('title')).toContain('Antes: 00h');
+  });
+
+  it('INR M cambia el byte apuntado', () => {
+    run('LXI H,0040H\nINR M\nHLT\n', 2);
+    render(<Registers />);
+    expect(cell(/^M: 01h \(cambió desde 00h\)$/).classList.contains('changed')).toBe(true);
+  });
+
+  it('si HL cambia y el byte apuntado difiere, M cambió; stepBack lo revierte', () => {
+    run('LXI H,0040H\nHLT\n', 0);
+    act(() => s().setMemoryByte(0x40, '3A'));
+    stepOnce();
+    render(<Registers />);
+    const m = cell(/^M: 3Ah \(cambió desde 00h\)$/);
+    expect(m.classList.contains('changed')).toBe(true);
+    act(() => s().stepBack());
+    expect(cell(/^M: 00h$/).classList.contains('changed')).toBe(false);
+  });
+
+  it('si HL cambia pero el byte es igual, M no cambió', () => {
+    run('LXI H,0050H\nHLT\n', 1);
+    render(<Registers />);
+    expect(cell(/^M: 00h$/).classList.contains('changed')).toBe(false);
   });
 });
 

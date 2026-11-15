@@ -50,10 +50,12 @@ export function Registers() {
 
   const live = machine && !stale ? machine : null;
   const changes = new Map<string, Change>();
+  const memBefore = new Map<number, number>();
   if (live) {
     for (const c of live.lastChanges()) {
       // PC siempre se informa: solo cuenta si su valor difiere.
       if (c.kind === 'reg' && c.before !== c.after) changes.set(c.name, c);
+      else if (c.kind === 'mem') memBefore.set(c.addr, c.before);
     }
   }
 
@@ -93,6 +95,16 @@ export function Registers() {
 
   const hl = live ? ((live.cpu.H << 8) | live.cpu.L) & 0xffff : 0;
   const mVal = live ? live.memory[hl]! : 0;
+  // M[HL] antes del paso: HL previo y, si ese byte se escribió, su valor previo.
+  let mBefore = mVal;
+  if (live) {
+    const h = changes.get('H')?.before ?? live.cpu.H;
+    const l = changes.get('L')?.before ?? live.cpu.L;
+    const hlBefore = ((h << 8) | l) & 0xffff;
+    mBefore = memBefore.get(hlBefore) ?? live.memory[hlBefore]!;
+  }
+  const mChanged = live !== null && mBefore !== mVal;
+  const mTitle = `M = memoria apuntada por HL (dirección ${fmt16(hl, 'hex')})`;
 
   return (
     <section className="panel" aria-label="Registros">
@@ -108,9 +120,9 @@ export function Registers() {
           <Cell
             name="M"
             value={fmt8(mVal, base)}
-            label={`M: ${fmt8(mVal, base)}`}
-            title={`M = memoria apuntada por HL (dirección ${fmt16(hl, 'hex')})`}
-            changed={false}
+            label={mChanged ? `M: ${fmt8(mVal, base)} (cambió desde ${fmt8(mBefore, base)})` : `M: ${fmt8(mVal, base)}`}
+            title={mChanged ? `${mTitle}\nAntes: ${fmt8(mBefore, base)}` : mTitle}
+            changed={mChanged}
             className="wide"
           />
         ) : (
