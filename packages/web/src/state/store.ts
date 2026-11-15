@@ -77,6 +77,7 @@ export interface Session {
   setMemoryByte(addr: number, valueText: string): void;
   clearUserMemory(): void;
   setInput(port: number, valueText: string): void;
+  removeInput(port: number): void;
   raise(irq: Irq): void;
 }
 
@@ -463,6 +464,19 @@ export function createSession(): StoreApi<Session> {
         }
         r.machine.inputs.set(port, p.value);
         set({ inputs, ...clearError(), ...touch() });
+      },
+
+      removeInput(port) {
+        if (!get().inputs.has(port)) return;
+        const inputs = new Map(get().inputs);
+        inputs.delete(port);
+        const r = ready();
+        if (!r) {
+          set({ inputs });
+          return;
+        }
+        r.machine.inputs.delete(port);
+        set({ inputs, ...touch() });
       },
 
       raise(irq) {

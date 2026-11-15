@@ -311,6 +311,17 @@ describe('validación (Review Focus 5)', () => {
     expect(st.getState().inputs.get(1)).toBe(0x20);
   });
 
+  it('removeInput quita el puerto de la sesión y de la máquina', () => {
+    const st = fresh();
+    st.getState().assembleActive();
+    st.getState().setInput(5, '7F');
+    expect(st.getState().machine!.inputs.get(5)).toBe(0x7f);
+    st.getState().removeInput(5);
+    expect(st.getState().inputs.has(5)).toBe(false);
+    expect(st.getState().machine!.inputs.has(5)).toBe(false);
+    st.getState().removeInput(9); // inexistente: no falla
+  });
+
   it('clearUserMemory borra los datos del alumno en la sesión y en la máquina', () => {
     const st = fresh();
     st.getState().assembleActive();
