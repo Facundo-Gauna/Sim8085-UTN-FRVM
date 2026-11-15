@@ -365,3 +365,126 @@ describe('setBase', () => {
     expect(after.version).toBe(before.version);
   });
 });
+
+describe('fix ronda 1: puntos de corte en el borde de una tanda', () => {
+  // El brief decía `L:`, pero L es un registro: el core lo rechaza como etiqueta.
+  const BORDER = 'MVI B,0\nLP: DCR B\nJNZ LP\nNOP\nHLT\n';
+
+  it('un punto de corte justo en el borde de la tanda se informa en la siguiente', () => {
+    const st = fresh();
+    st.getState().setText(st.getState().activeId, BORDER);
+    st.getState().toggleBreakpoint(4);
+    st.getState().assembleActive();
+    expect(st.getState().runBatch(513)).toBeNull();
+    const nop = st.getState().asm!.lineToAddress.get(4)!;
+    expect(st.getState().machine!.cpu.PC).toBe(nop);
+    expect(st.getState().runBatch(513)).toBe('breakpoint');
+    expect(st.getState().machine!.cpu.PC).toBe(nop);
+    expect(st.getState().status).toEqual({ kind: 'info', text: 'Punto de corte en la línea 4' });
+    expect(st.getState().runBatch(513)).toBe('halt');
+  });
+
+  it('punto de corte en la instrucción de entrada: se detiene una vez con stepCount 0', () => {
+    const st = fresh();
+    st.getState().toggleBreakpoint(2); // LDA, la entrada del ejemplo
+    st.getState().assembleActive();
+    const v = st.getState().version;
+    expect(st.getState().runBatch(100000)).toBe('breakpoint');
+    expect(st.getState().machine!.stepCount).toBe(0);
+    expect(st.getState().version).toBe(v + 1);
+    expect(st.getState().status).toEqual({ kind: 'info', text: 'Punto de corte en la línea 2' });
+    expect(st.getState().runBatch(100000)).toBe('halt');
+  });
+
+  it('step() fuera del punto de corte y back() sobre él: la próxima tanda se detiene otra vez', () => {
+    const st = fresh();
+    st.getState().toggleBreakpoint(2);
+    st.getState().assembleActive();
+    expect(st.getState().runBatch(100000)).toBe('breakpoint');
+    st.getState().step();
+    st.getState().stepBack();
+    expect(st.getState().machine!.cpu.PC).toBe(0x2000);
+    expect(st.getState().runBatch(100000)).toBe('breakpoint');
+  });
+
+  it('reset() vuelve a detener en el punto de corte de la entrada', () => {
+    const st = fresh();
+    st.getState().toggleBreakpoint(2);
+    st.getState().assembleActive();
+    st.getState().runBatch(100000);
+    st.getState().runBatch(100000);
+    st.getState().reset();
+    expect(st.getState().runBatch(100000)).toBe('breakpoint');
+  });
+});
+
+describe('fix ronda 1: estado y validación', () => {
+  it('un setter válido limpia el error anterior (memoria, entrada, inicio)', () => {
+    const st = fresh();
+    st.getState().setMemoryByte(0x40, 'zz');
+    expect(st.getState().status?.kind).toBe('error');
+    st.getState().setMemoryByte(0x40, '12');
+    expect(st.getState().status).toBeNull();
+
+    st.getState().setInput(1, 'zz');
+    expect(st.getState().status?.kind).toBe('error');
+    st.getState().setInput(1, '12');
+    expect(st.getState().status).toBeNull();
+
+    st.getState().setStartAddress('xyz');
+    expect(st.getState().status?.kind).toBe('error');
+    st.getState().setStartAddress('3000');
+    expect(st.getState().status).toBeNull();
+  });
+
+  it("setStartAddress('20000h') se rechaza", () => {
+    const st = fresh();
+    st.getState().setStartAddress('20000h');
+    expect(st.getState().startAddress).toBe(0x2000);
+    expect(st.getState().status).toEqual({ kind: 'error', text: 'Dirección fuera de rango (0000h–FFFFh)' });
+  });
+
+  it('setStartAddress después de ensamblar marca stale y avisa', () => {
+    const st = fresh();
+    st.getState().assembleActive();
+    st.getState().setStartAddress('3000');
+    expect(st.getState().startAddress).toBe(0x3000);
+    expect(st.getState().stale).toBe(true);
+    expect(st.getState().status).toEqual({
+      kind: 'info',
+      text: 'La dirección de inicio cambió: volvé a ensamblar',
+    });
+  });
+
+  it('setActive limpia status, metrics y prevMetrics', () => {
+    const st = fresh();
+    const first = st.getState().activeId;
+    st.getState().assembleActive();
+    st.getState().assembleActive();
+    expect(st.getState().prevMetrics).not.toBeNull();
+    st.getState().newFile();
+    st.getState().setActive(first);
+    const s = st.getState();
+    expect(s.status).toBeNull();
+    expect(s.metrics).toBeNull();
+    expect(s.prevMetrics).toBeNull();
+  });
+
+  it('con la sesión stale, step/back/reset/raise/runBatch avisan sin lanzar', () => {
+    const st = fresh();
+    st.getState().assembleActive();
+    st.getState().setText(st.getState().activeId, 'HLT\n');
+    const NOT_READY = { kind: 'error', text: 'Ensamblá primero (F5)' };
+    for (const act of [
+      () => st.getState().step(),
+      () => st.getState().stepBack(),
+      () => st.getState().reset(),
+      () => st.getState().raise('TRAP'),
+      () => expect(st.getState().runBatch(100000)).toBeNull(),
+    ]) {
+      st.setState({ status: null });
+      expect(act).not.toThrow();
+      expect(st.getState().status).toEqual(NOT_READY);
+    }
+  });
+});

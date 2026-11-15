@@ -37,7 +37,7 @@ export interface Status {
 export interface Session {
   files: FileTab[];
   activeId: string;
-  /** Dirección de inicio que se pasa a assemble(); por defecto 2000h. */
+  /** Dirección de inicio que se pasa a assemble(); la sesión inicial usa 2000h. */
   startAddress: number;
   base: Base;
   /** Sube en cada cambio de la máquina (es mutable: la UI depende de esto). */
@@ -87,6 +87,13 @@ const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 
 export function createSession(): StoreApi<Session> {
   let nextId = 0;
+  /**
+   * PC donde ya se informó un punto de corte. Machine.run() no evalúa el punto
+   * de corte antes de su primer paso, así que runBatch lo revisa al empezar;
+   * esto evita detenerse dos veces seguidas en el mismo lugar. Se borra en
+   * toda acción que mueve el PC o cambia el estado fuera de run().
+   */
+  let lastBreakPc: number | null = null;
   const makeFile = (name: string, text: string): FileTab => ({ id: `f${++nextId}`, name, text });
   const first = makeFile(SAMPLE.name, SAMPLE.text);
 
@@ -101,14 +108,29 @@ export function createSession(): StoreApi<Session> {
     };
 
     /** Estado sin ensamblado, al cambiar el texto que se muestra. */
-    const cleared = () => ({
-      asm: null,
-      machine: null,
-      stale: false,
-      metrics: null,
-      pausePrompt: false,
-      breakpointLines: new Set<number>(),
-    });
+    const cleared = () => {
+      lastBreakPc = null;
+      return {
+        asm: null,
+        machine: null,
+        stale: false,
+        metrics: null,
+        pausePrompt: false,
+        breakpointLines: new Set<number>(),
+      };
+    };
+
+    /** Un setter válido borra un error anterior (deja los avisos informativos). */
+    const clearError = () => (get().status?.kind === 'error' ? { status: null } : {});
+
+    /** Línea del punto de corte que está en el PC actual, si corresponde detenerse ahí. */
+    const breakpointAtPc = (machine: Machine, asm: AssembleResult): number | null => {
+      if (machine.cpu.halted || lastBreakPc === machine.cpu.PC) return null;
+      for (const line of get().breakpointLines) {
+        if (asm.lineToAddress.get(line) === machine.cpu.PC) return line;
+      }
+      return null;
+    };
 
     const nextUntitled = (files: FileTab[]): string => {
       const names = new Set(files.map((f) => f.name));
@@ -167,7 +189,8 @@ export function createSession(): StoreApi<Session> {
 
       setActive(id) {
         if (id === get().activeId || !get().files.some((f) => f.id === id)) return;
-        set({ activeId: id, ...cleared(), ...touch() });
+        // Otro programa: no se comparan métricas entre archivos distintos.
+        set({ activeId: id, ...cleared(), prevMetrics: null, status: null, ...touch() });
       },
 
       setStartAddress(text) {
@@ -176,7 +199,17 @@ export function createSession(): StoreApi<Session> {
           set({ status: { kind: 'error', text: p.error } });
           return;
         }
-        set({ startAddress: p.value, status: null });
+        if (get().machine && p.value !== get().startAddress) {
+          // La máquina y el listado muestran el origen viejo hasta re-ensamblar.
+          set({
+            startAddress: p.value,
+            stale: true,
+            pausePrompt: false,
+            status: { kind: 'info', text: 'La dirección de inicio cambió: volvé a ensamblar' },
+          });
+          return;
+        }
+        set({ startAddress: p.value, ...clearError() });
       },
 
       setBase(b) {
@@ -184,6 +217,7 @@ export function createSession(): StoreApi<Session> {
       },
 
       assembleActive() {
+        lastBreakPc = null;
         const s = get();
         const file = s.files.find((f) => f.id === s.activeId)!;
         const asm = assemble(file.text, { start: s.startAddress });
@@ -243,6 +277,7 @@ export function createSession(): StoreApi<Session> {
           set({ status: NOT_READY });
           return;
         }
+        lastBreakPc = null;
         const res = r.machine.step();
         let status: Status | null = null;
         if (res.reason === 'halt') status = HALTED;
@@ -256,6 +291,7 @@ export function createSession(): StoreApi<Session> {
           set({ status: NOT_READY });
           return;
         }
+        lastBreakPc = null;
         if (!r.machine.back()) {
           set({ status: { kind: 'info', text: 'No hay pasos para deshacer' } });
           return;
@@ -269,6 +305,7 @@ export function createSession(): StoreApi<Session> {
           set({ status: NOT_READY });
           return;
         }
+        lastBreakPc = null;
         r.machine.reset();
         set({ metrics: computeMetrics(r.asm, r.machine), pausePrompt: false, status: null, ...touch() });
       },
@@ -288,6 +325,12 @@ export function createSession(): StoreApi<Session> {
           set({ status: NOT_READY });
           return null;
         }
+        const atBreak = breakpointAtPc(r.machine, r.asm);
+        if (atBreak !== null) {
+          lastBreakPc = r.machine.cpu.PC;
+          set({ status: { kind: 'info', text: `Punto de corte en la línea ${atBreak}` }, ...touch() });
+          return 'breakpoint';
+        }
         const res = r.machine.run(maxInstructions);
         const metrics = computeMetrics(r.asm, r.machine);
         switch (res.reason) {
@@ -302,6 +345,7 @@ export function createSession(): StoreApi<Session> {
             set({ metrics, status: HALTED, ...touch() });
             return 'halt';
           case 'breakpoint': {
+            lastBreakPc = r.machine.cpu.PC;
             const line = r.asm.addressToLine.get(r.machine.cpu.PC);
             set({
               metrics,
@@ -361,13 +405,15 @@ export function createSession(): StoreApi<Session> {
         const userMemory = new Map(get().userMemory).set(a, p.value);
         const r = ready();
         if (!r) {
-          set({ userMemory });
+          set({ userMemory, ...clearError() });
           return;
         }
+        lastBreakPc = null;
         const hadHistory = r.machine.canBack;
         r.machine.setMemory(a, p.value);
         set({
           userMemory,
+          ...clearError(),
           // Solo avisa cuando agrega información: se perdió el paso atrás.
           ...(hadHistory
             ? { status: { kind: 'info' as const, text: 'Memoria editada: se borró el historial de pasos' } }
@@ -378,6 +424,7 @@ export function createSession(): StoreApi<Session> {
 
       clearUserMemory() {
         const r = ready();
+        if (r) lastBreakPc = null;
         r?.machine.clearUserData();
         set({ userMemory: new Map(), ...(r ? touch() : {}) });
       },
@@ -396,11 +443,11 @@ export function createSession(): StoreApi<Session> {
         const inputs = new Map(get().inputs).set(port, p.value);
         const r = ready();
         if (!r) {
-          set({ inputs });
+          set({ inputs, ...clearError() });
           return;
         }
         r.machine.inputs.set(port, p.value);
-        set({ inputs, ...touch() });
+        set({ inputs, ...clearError(), ...touch() });
       },
 
       raise(irq) {
@@ -409,6 +456,7 @@ export function createSession(): StoreApi<Session> {
           set({ status: NOT_READY });
           return;
         }
+        lastBreakPc = null;
         r.machine.raise(irq);
         set({ ...touch() });
       },
