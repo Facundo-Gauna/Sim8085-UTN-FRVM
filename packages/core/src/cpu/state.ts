@@ -4,6 +4,17 @@ export interface CpuState {
   A: number; B: number; C: number; D: number; E: number; H: number; L: number;
   SP: number; PC: number; flags: Flags; halted: boolean;
   ie: boolean;
+  /**
+   * EI recién ejecutado: las interrupciones enmascarables se habilitan
+   * "a partir de la próxima instrucción" (pág. 15), así que no se aceptan
+   * hasta que se complete la instrucción siguiente al EI.
+   */
+  eiPending: boolean;
+  /**
+   * IE vigente antes del último TRAP aceptado; el RIM inmediatamente posterior
+   * lo devuelve en el bit 3 (pág. 16). `null` si no aplica.
+   */
+  ieBeforeTrap: boolean | null;
   masks: { m55: boolean; m65: boolean; m75: boolean };
   pending: { r75: boolean; r65: boolean; r55: boolean; trap: boolean };
   sid: 0 | 1; sod: 0 | 1;
@@ -16,6 +27,8 @@ export function initialState(pc: number): CpuState {
     flags: { S: 0, Z: 0, AC: 0, P: 0, CY: 0 },
     halted: false,
     ie: false,
+    eiPending: false,
+    ieBeforeTrap: null,
     masks: { m55: true, m65: true, m75: true },
     pending: { r75: false, r65: false, r55: false, trap: false },
     sid: 0, sod: 0,

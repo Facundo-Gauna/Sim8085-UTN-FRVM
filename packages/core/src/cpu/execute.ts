@@ -40,6 +40,8 @@ export interface StepInfo {
   memWrite?: number;
   /** Mensaje de error, p. ej. 'Opcode inválido 08h en 2005h'. */
   error?: string;
+  /** Nota para la traza, p. ej. 'Interrupción RST 6.5 aceptada → 0034h'. */
+  note?: string;
 }
 
 const w16 = (v: number): number => v & 0xffff;
@@ -137,6 +139,73 @@ function aluOp(c: Ctx, op: number, v: number): void {
 }
 
 /**
+ * RIM (pág. 16): A = SID I7.5 I6.5 I5.5 IE M7.5 M6.5 M5.5.
+ * Inmediatamente después de un TRAP, IE es el valor previo al TRAP.
+ */
+function rim(s: CpuState, ieBeforeTrap: boolean | null): void {
+  const b = (v: boolean | number, n: number): number => (v ? 1 : 0) << n;
+  s.A =
+    b(s.sid, 7) | b(s.pending.r75, 6) | b(s.pending.r65, 5) | b(s.pending.r55, 4) |
+    b(ieBeforeTrap ?? s.ie, 3) | b(s.masks.m75, 2) | b(s.masks.m65, 1) | b(s.masks.m55, 0);
+}
+
+/**
+ * SIM (pág. 17): A = SOD SOE x R7.5 MSE M7.5 M6.5 M5.5.
+ * MSE=1 carga las máscaras (1 = enmascarada); R7.5=1 borra el latch de RST 7.5;
+ * SOE=1 carga SOD.
+ */
+function sim(s: CpuState): void {
+  const a = s.A;
+  if (a & 0x08) {
+    s.masks.m55 = (a & 0x01) !== 0;
+    s.masks.m65 = (a & 0x02) !== 0;
+    s.masks.m75 = (a & 0x04) !== 0;
+  }
+  if (a & 0x10) s.pending.r75 = false;
+  if (a & 0x40) s.sod = ((a >> 7) & 1) as 0 | 1;
+}
+
+const VECTORS = [
+  { key: 'trap', name: 'TRAP', vector: 0x0024 },
+  { key: 'r75', name: 'RST 7.5', vector: 0x003c },
+  { key: 'r65', name: 'RST 6.5', vector: 0x0034 },
+  { key: 'r55', name: 'RST 5.5', vector: 0x002c },
+] as const;
+const MASK = { r75: 'm75', r65: 'm65', r55: 'm55' } as const;
+
+/**
+ * Acepta, si corresponde, una interrupción pendiente. La Machine la llama antes
+ * de cada `execute`; si devuelve `StepInfo`, ese paso fue la aceptación (no se
+ * ejecuta instrucción).
+ *
+ * Prioridad TRAP (0024h) > RST 7.5 (003Ch) > RST 6.5 (0034h) > RST 5.5 (002Ch).
+ * TRAP no es enmascarable ni depende de IE; las demás requieren IE, que no haya
+ * un EI recién ejecutado (`eiPending`) y que su máscara esté en 0.
+ * Al aceptar: push PC, IE = false, se borra el pendiente, PC = vector, 12 T,
+ * y se sale de HLT (el retorno es la dirección siguiente al HLT).
+ */
+export function acceptInterrupt(s: CpuState, bus: Bus): StepInfo | null {
+  const enabled = s.ie && !s.eiPending;
+  const hit = VECTORS.find(({ key }) =>
+    s.pending[key] && (key === 'trap' || (enabled && !s.masks[MASK[key]])));
+  if (!hit) return null;
+
+  const pc = w16(s.PC);
+  const c = new Ctx(s, bus);
+  c.push16(pc);
+  s.ieBeforeTrap = hit.key === 'trap' ? s.ie : null;
+  s.ie = false;
+  s.eiPending = false;
+  s.pending[hit.key] = false;
+  s.halted = false;
+  s.PC = hit.vector;
+  return {
+    pc, opcode: -1, tStates: 12, memWrite: c.memWrite!,
+    note: `Interrupción ${hit.name} aceptada → ${hex(hit.vector, 4)}h`,
+  };
+}
+
+/**
  * Ejecuta la instrucción en `s.PC`, muta `s` y devuelve la información del paso.
  * Un opcode inválido no modifica el estado (el PC no avanza) y devuelve `error`.
  */
@@ -154,6 +223,11 @@ export function execute(s: CpuState, bus: Bus): StepInfo {
   s.PC = w16(pc + instr.size);
 
   const c = new Ctx(s, bus);
+  // El EI anterior ya tuvo su "próxima instrucción": desde ahora rige ie.
+  s.eiPending = false;
+  // El valor de IE previo al TRAP solo lo ve el RIM inmediatamente posterior.
+  const ieBeforeTrap = s.ieBeforeTrap;
+  s.ieBeforeTrap = null;
   let taken = false; // para T-estados de condicionales
   const ddd = (opcode >> 3) & 7;
   const sss = opcode & 7;
@@ -172,11 +246,8 @@ export function execute(s: CpuState, bus: Bus): StepInfo {
     case 0:
       switch (sss) {
         case 0: // NOP, RIM, SIM
-          if (opcode === 0x20) {
-            // TASK7: RIM — por ahora se comporta como NOP (tamaño y T-estados correctos).
-          } else if (opcode === 0x30) {
-            // TASK7: SIM — por ahora se comporta como NOP (tamaño y T-estados correctos).
-          }
+          if (opcode === 0x20) rim(s, ieBeforeTrap);
+          else if (opcode === 0x30) sim(s);
           break;
         case 1: // LXI rp / DAD rp
           if (opcode & 0x08) {
@@ -272,8 +343,8 @@ export function execute(s: CpuState, bus: Bus): StepInfo {
               s.H = s.D; s.L = s.E; s.D = h; s.E = l;
               break;
             }
-            case 6: s.ie = false; break;                     // DI
-            case 7: s.ie = true; break;                      // EI
+            case 6: s.ie = false; s.eiPending = false; break; // DI
+            case 7: s.ie = true; s.eiPending = true; break;    // EI (efectivo tras la próxima instrucción)
             // 1 (0xCB): inválido
           }
           break;
