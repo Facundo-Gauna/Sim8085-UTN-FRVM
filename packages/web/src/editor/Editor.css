@@ -13,3 +13,152 @@
   flex: 1 1 auto;
   min-height: 0;
 }
+
+/* ---------------------------------------------------------------------------
+ * Depuración (MASTER.md §2.3): ningún estado depende solo del color.
+ * ------------------------------------------------------------------------- */
+
+/* Margen de puntos de corte: círculo relleno de 10 px; al pasar el mouse, un aro punteado. */
+.editor .cm-sim-bp-gutter .cm-gutterElement {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  cursor: pointer;
+}
+.editor .cm-sim-bp-gutter .cm-gutterElement:empty::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px dashed transparent;
+  box-sizing: border-box;
+}
+.editor .cm-sim-bp-gutter .cm-gutterElement:empty:hover::before {
+  border-color: var(--line-strong);
+}
+.editor .cm-sim-bp {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--danger);
+}
+
+/* Numeración tipo pin (§5.1): raya de 4 px que conecta el número al borde. */
+.editor .cm-lineNumbers .cm-gutterElement {
+  position: relative;
+}
+.editor .cm-lineNumbers .cm-gutterElement::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 4px;
+  height: 1px;
+  background: var(--line-strong);
+}
+
+/* Margen del PC: flecha ▶ en la línea actual. */
+.editor .cm-sim-pc-gutter .cm-gutterElement {
+  width: 18px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--current);
+}
+.editor .cm-sim-spacer {
+  visibility: hidden;
+}
+
+/* Línea actual: barra de 3 px + fondo tenue (el ▶ del margen la acompaña). */
+.editor .cm-line.cm-sim-current {
+  background: color-mix(in srgb, var(--current) 9%, transparent);
+  box-shadow: inset 3px 0 0 var(--current);
+}
+
+/* Errores (ondulado) y advertencias del ensamblado; el mensaje va en el title. */
+.editor .cm-sim-error {
+  text-decoration: underline wavy var(--danger);
+  text-decoration-skip-ink: none;
+  text-underline-offset: 3px;
+}
+.editor .cm-sim-warning {
+  text-decoration: underline wavy var(--warning);
+  text-decoration-skip-ink: none;
+  text-underline-offset: 3px;
+}
+
+/* Contador de comentario largo: ícono + NN/80 al final de la línea. */
+.editor .cm-sim-count {
+  margin-left: 16px;
+  padding: 0 4px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--warning);
+  border: 1px solid var(--warning);
+  border-radius: 2px;
+  user-select: none;
+}
+
+/* Etiqueta FUERA DE CÁTEDRA en versalitas (§5.4). */
+.sim-fuera-label {
+  font: 600 10px/16px var(--sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+/* Ayuda al pasar el mouse. */
+.cm-tooltip.sim-hover {
+  max-width: 360px;
+  padding: 8px 10px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  font: 400 13px/20px var(--sans);
+}
+.cm-tooltip.sim-hover.sim-hover--fuera {
+  border-style: dotted;
+}
+.cm-tooltip.sim-hover .sim-hover-title {
+  font: 600 13px/20px var(--mono);
+}
+.cm-tooltip.sim-hover .sim-hover-meta {
+  margin-top: 4px;
+  font: 400 12px/18px var(--mono);
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Autocompletado: lo de fuera de la cátedra con borde punteado y etiqueta. */
+.cm-tooltip.cm-tooltip-autocomplete {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  font-family: var(--mono);
+}
+.cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.cm-tooltip.cm-tooltip-autocomplete .cm-completionDetail {
+  font: italic 400 12px var(--sans);
+  color: var(--ink-muted);
+  margin-left: 8px;
+}
+.cm-tooltip.cm-tooltip-autocomplete li.sim-option-fuera {
+  outline: 1px dotted var(--line-strong);
+  outline-offset: -2px;
+}
+.cm-tooltip.cm-tooltip-autocomplete li.sim-option-fuera .sim-fuera-label {
+  margin-left: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .editor .cm-sim-current,
+  .cm-tooltip.sim-hover,
+  .cm-tooltip.cm-tooltip-autocomplete {
+    transition: none;
+    animation: none;
+  }
+}

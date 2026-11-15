@@ -4,6 +4,7 @@ import { EditorView } from '@codemirror/view';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { indentLess, undo } from '@codemirror/commands';
 import { buildExtensions, Editor, externalSync, insertTabSpaces } from './Editor';
+import { decorationSpecs } from './decorations';
 import { defaultSession, SAMPLE } from '../state/store';
 
 /** Vista de CodeMirror montada dentro del contenedor (API pública de CM). */
@@ -202,5 +203,91 @@ describe('buildExtensions', () => {
     view.dispatch({ changes: { from: 0, insert: ';' } });
     expect(onChange).toHaveBeenCalledWith(';NOP');
     view.destroy();
+  });
+});
+
+describe('Editor: depuración', () => {
+  const mountSample = () => {
+    const file = activeFile();
+    const r = render(<Editor fileId={file.id} fontSize={16} />);
+    return { ...r, view: viewIn(r.container), file };
+  };
+  const specs = (view: EditorView) => decorationSpecs(view.state);
+  const s = () => defaultSession.getState();
+
+  it('la línea actual sigue al PC y se oculta con stale', () => {
+    const { container, view, file } = mountSample();
+    expect(specs(view).some((d) => d.kind === 'current')).toBe(false);
+    act(() => s().assembleActive());
+    expect(specs(view)).toContainEqual({ kind: 'current', line: 2 }); // línea 2 = LDA (la 1 es comentario)
+    expect(container.querySelector('.cm-sim-current')?.textContent).toContain('LDA');
+    expect(container.querySelector('.cm-sim-pc-marker')?.textContent).toBe('▶');
+    act(() => s().step());
+    expect(specs(view)).toContainEqual({ kind: 'current', line: 3 });
+    expect(container.querySelector('.cm-sim-current')?.textContent).toContain('CMA');
+    act(() => s().setText(file.id, `${SAMPLE.text}NOP\n`));
+    expect(s().stale).toBe(true);
+    expect(specs(view).some((d) => d.kind === 'current')).toBe(false);
+    expect(container.querySelector('.cm-sim-current')).toBeNull();
+  });
+
+  it('el punto de corte aparece al alternarlo y se oculta con stale', () => {
+    const { container, view, file } = mountSample();
+    act(() => s().assembleActive());
+    act(() => s().toggleBreakpoint(3));
+    expect(specs(view)).toContainEqual({ kind: 'breakpoint', line: 3 });
+    const dot = container.querySelector('.cm-sim-bp');
+    expect(dot?.getAttribute('aria-label')).toBe('Punto de corte');
+    act(() => s().setText(file.id, `${SAMPLE.text}NOP\n`));
+    expect(specs(view).some((d) => d.kind === 'breakpoint')).toBe(false);
+    expect(container.querySelector('.cm-sim-bp')).toBeNull();
+  });
+
+  it('una línea sin instrucción no recibe punto de corte (el núcleo lo rechaza)', () => {
+    const { view } = mountSample();
+    act(() => s().assembleActive());
+    act(() => s().toggleBreakpoint(1)); // comentario
+    expect(specs(view).some((d) => d.kind === 'breakpoint')).toBe(false);
+  });
+
+  it('el clic en el margen llama a toggleBreakpoint', () => {
+    const toggle = vi.fn();
+    const view = new EditorView({
+      state: EditorState.create({ doc: 'NOP\nHLT\n', extensions: buildExtensions({ onChange: vi.fn(), onToggleBreakpoint: toggle }) }),
+    });
+    document.body.appendChild(view.dom);
+    view.dispatch({ selection: { anchor: 4 } });
+    // F9 alterna el punto de corte de la línea del cursor.
+    key(view, 'F9', 120);
+    expect(toggle).toHaveBeenCalledWith(2);
+    // jsdom no mide alturas: el clic cae en el primer bloque (línea 1).
+    const cell = view.dom.querySelector('.cm-sim-bp-gutter .cm-gutterElement:not(.cm-sim-spacer)');
+    expect(cell).not.toBeNull();
+    cell!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, clientY: 1 }));
+    expect(toggle).toHaveBeenLastCalledWith(1);
+    view.destroy();
+  });
+
+  it('errores del ensamblado subrayados con el mensaje en el title', () => {
+    const file = activeFile();
+    act(() => s().setText(file.id, 'MVI A, A1H\nHLT\n'));
+    const { container, view } = mountSample();
+    act(() => s().assembleActive());
+    const err = specs(view).find((d) => d.kind === 'error');
+    expect(err).toMatchObject({ line: 1 });
+    const mark = container.querySelector('.cm-sim-error');
+    expect(mark?.getAttribute('title')).toMatch(/0A1H/);
+    act(() => s().setText(file.id, 'MVI A, 0A1H\nHLT\n'));
+    expect(container.querySelector('.cm-sim-error')).toBeNull();
+  });
+
+  it('contador NN/80 con ícono en comentarios largos, sin ensamblar', () => {
+    const file = activeFile();
+    act(() => s().setText(file.id, `NOP ; ${'x'.repeat(81)}\nNOP ; ${'y'.repeat(80)}\n`));
+    const { container } = mountSample();
+    const counters = container.querySelectorAll('.cm-sim-count');
+    expect(counters).toHaveLength(1);
+    expect(counters[0]!.textContent).toContain('81/80');
+    expect(counters[0]!.textContent).toContain('⚠');
   });
 });

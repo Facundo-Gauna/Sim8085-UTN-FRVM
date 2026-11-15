@@ -2,7 +2,11 @@
  * Editor de código (CodeMirror 6) sincronizado con la sesión.
  *
  * Tab inserta espacios (hasta la próxima parada de 8 columnas). Para salir
- * del editor con el teclado: Escape y luego Tab (o Ctrl-M).
+ * del editor con el teclado: Escape y luego Tab (o Ctrl-M). F9 alterna el
+ * punto de corte de la línea del cursor; Ctrl-Espacio abre el autocompletado.
+ *
+ * Las marcas de depuración (línea actual, puntos de corte, errores) llegan por
+ * el efecto `setDecorations`: no se recrea la vista (se conservan deshacer y cursor).
  */
 import { useEffect, useRef, type CSSProperties } from 'react';
 import { Annotation, EditorSelection, EditorState, Transaction, type Extension } from '@codemirror/state';
@@ -12,7 +16,6 @@ import {
   highlightActiveLine,
   highlightActiveLineGutter,
   keymap,
-  lineNumbers,
   type Command,
 } from '@codemirror/view';
 import {
@@ -23,8 +26,13 @@ import {
   indentMore,
 } from '@codemirror/commands';
 import { indentUnit } from '@codemirror/language';
+import type { AssembleResult, Machine } from '@sim8085/core';
 import { defaultSession, useSession } from '../state/store';
 import { asmLanguage } from './asmLanguage';
+import { debugGutters } from './breakpoints';
+import { asmCompletion } from './completion';
+import { debugDecorations, setDecorations, type SessionMarks } from './decorations';
+import { asmHover } from './hover';
 import { editorTheme } from './editorTheme';
 import './Editor.css';
 
@@ -57,12 +65,15 @@ export const insertTabSpaces: Command = (view) => {
 export interface EditorExtensionOptions {
   /** Texto completo tras cada cambio hecho en el editor (no los de `externalSync`). */
   onChange: (text: string) => void;
+  /** Clic en el margen de puntos de corte o F9: línea (1-based) a alternar. */
+  onToggleBreakpoint?: (line: number) => void;
 }
 
 /** Todas las extensiones del editor en un solo lugar (Task 6 suma las suyas acá). */
 export function buildExtensions(opts: EditorExtensionOptions): Extension[] {
   return [
-    lineNumbers(),
+    debugGutters(opts.onToggleBreakpoint),
+    debugDecorations,
     highlightActiveLineGutter(),
     highlightActiveLine(),
     history(),
@@ -75,6 +86,8 @@ export function buildExtensions(opts: EditorExtensionOptions): Extension[] {
       ...historyKeymap,
     ]),
     asmLanguage,
+    asmCompletion,
+    asmHover,
     editorTheme,
     EditorView.contentAttributes.of({ 'aria-label': 'Editor de código ensamblador' }),
     EditorView.updateListener.of((u) => {
@@ -85,12 +98,28 @@ export function buildExtensions(opts: EditorExtensionOptions): Extension[] {
   ];
 }
 
+/**
+ * Línea actual: la del PC si la dirección corresponde a una línea del fuente
+ * (también tras HLT, si el PC quedó sobre una instrucción); si no, ninguna.
+ */
+export function currentLineOf(asm: AssembleResult | null, machine: Machine | null, stale: boolean): number | null {
+  if (!asm || !machine || stale) return null;
+  return asm.addressToLine.get(machine.cpu.PC) ?? null;
+}
+
 const textOf = (fileId: string) => defaultSession.getState().files.find((f) => f.id === fileId)?.text ?? '';
 
 export function Editor({ fileId, fontSize }: { fileId: string; fontSize: number }): JSX.Element {
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const text = useSession((s) => s.files.find((f) => f.id === fileId)?.text ?? '');
+  // El ensamblado y la máquina son del archivo activo: otro archivo no muestra marcas.
+  const isActive = useSession((s) => s.activeId === fileId);
+  const asm = useSession((s) => s.asm);
+  const machine = useSession((s) => s.machine);
+  const stale = useSession((s) => s.stale);
+  const breakpointLines = useSession((s) => s.breakpointLines);
+  const version = useSession((s) => s.version);
 
   useEffect(() => {
     const view = new EditorView({
@@ -98,7 +127,12 @@ export function Editor({ fileId, fontSize }: { fileId: string; fontSize: number 
       state: EditorState.create({
         doc: textOf(fileId),
         // setText se lee en cada cambio (no se captura una versión vieja del store).
-        extensions: buildExtensions({ onChange: (t) => defaultSession.getState().setText(fileId, t) }),
+        extensions: buildExtensions({
+          onChange: (t) => defaultSession.getState().setText(fileId, t),
+          onToggleBreakpoint: (line) => {
+            if (defaultSession.getState().activeId === fileId) defaultSession.getState().toggleBreakpoint(line);
+          },
+        }),
       }),
     });
     viewRef.current = view;
@@ -118,6 +152,21 @@ export function Editor({ fileId, fontSize }: { fileId: string; fontSize: number 
       annotations: [externalSync.of(true), Transaction.addToHistory.of(false)],
     });
   }, [text, fileId]);
+
+  // Marcas de la sesión: la máquina es mutable, `version` avisa que cambió el PC.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    const marks: SessionMarks = isActive
+      ? {
+          asmMessages: asm?.messages ?? [],
+          currentLine: currentLineOf(asm, machine, stale),
+          breakpointLines,
+          stale,
+        }
+      : { asmMessages: [], currentLine: null, breakpointLines: new Set(), stale: false };
+    view.dispatch({ effects: setDecorations.of(marks) });
+  }, [fileId, isActive, version, stale, breakpointLines, asm, machine]);
 
   const size = Math.min(FONT_MAX, Math.max(FONT_MIN, Math.round(fontSize)));
   useEffect(() => {
