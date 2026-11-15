@@ -26,7 +26,7 @@ export function StatusBar() {
   if (stale) state = 'Código desactualizado';
   else if (live) {
     const pc = fmt16(live.cpu.PC, 'hex');
-    if (live.cpu.halted) state = 'Detenido (HLT)';
+    if (live.cpu.halted) state = `Detenido · PC ${pc}`;
     else state = `${live.stepCount === 0 ? 'Listo' : 'En pausa'} · PC ${pc}`;
   }
 
@@ -45,16 +45,24 @@ export function StatusBar() {
       </span>
       <span>{state}</span>
       <span className="mono">{live ? live.tStates : 0} estados T</span>
-      {status && (
-        <span
-          className={`msg ${status.kind}`}
-          role={status.kind === 'error' ? 'alert' : 'status'}
-          title={status.text}
-        >
-          {status.kind === 'error' ? <CircleAlert size={14} aria-hidden="true" /> : <Info size={14} aria-hidden="true" />}
-          <span className="msg-t">{status.text}</span>
-        </span>
-      )}
+      {(['info', 'error'] as const).map((kind) => {
+        const m = status?.kind === kind ? status : null;
+        return (
+          <span
+            key={kind}
+            className={`msg-slot ${kind}`}
+            role={kind === 'error' ? 'alert' : 'status'}
+            title={m?.text}
+          >
+            {m && (
+              <>
+                {kind === 'error' ? <CircleAlert size={14} aria-hidden="true" /> : <Info size={14} aria-hidden="true" />}
+                <span className="msg-t">{m.text}</span>
+              </>
+            )}
+          </span>
+        );
+      })}
     </footer>
   );
 }

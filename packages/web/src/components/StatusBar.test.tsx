@@ -1,3 +1,4 @@
+import { StrictMode } from 'react';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Change } from '@sim8085/core';
@@ -39,7 +40,8 @@ describe('StatusBar', () => {
     expect(screen.getByText('En pausa · PC 2003h')).toBeTruthy();
     expect(screen.getByText('13 estados T')).toBeTruthy();
     for (let i = 0; i < 3; i++) stepOnce();
-    expect(screen.getAllByText('Detenido (HLT)').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Detenido (HLT)')).toHaveLength(1);
+    expect(screen.getAllByText(/^Detenido · PC /)).toHaveLength(1);
   });
 
   it('código cambiado muestra Código desactualizado', () => {
@@ -47,6 +49,21 @@ describe('StatusBar', () => {
     act(() => s().setText(s().activeId, 'NOP\n'));
     render(<StatusBar />);
     expect(screen.getByText('Código desactualizado')).toBeTruthy();
+  });
+
+  it('los contenedores status y alert siguen montados y vacíos sin mensaje', () => {
+    render(<StatusBar />);
+    const status = screen.getByRole('status');
+    const alert = screen.getByRole('alert');
+    expect(status.textContent).toBe('');
+    expect(alert.textContent).toBe('');
+    act(() => s().assembleActive());
+    expect(screen.getByRole('status')).toBe(status);
+    expect(status.textContent).toMatch(/^Ensamblado correcto/);
+    act(() => s().toggleBreakpoint(1));
+    expect(screen.getByRole('alert')).toBe(alert);
+    expect(alert.textContent).toBe(s().status!.text);
+    expect(status.textContent).toBe('');
   });
 
   it('el mensaje usa role status (info) o alert (error) y title con el texto', () => {
@@ -71,6 +88,15 @@ describe('Announcer', () => {
     expect(region(container).getAttribute('aria-atomic')).toBe('false');
     expect(region(container).textContent).toBe('');
     stepOnce();
+    expect(region(container).textContent).toBe('A cambió de 00h a 3Ah. PC cambió de 2000h a 2003h.');
+  });
+
+  it('con StrictMode anuncia una sola vez y no re-anuncia al cambiar la base', () => {
+    act(() => s().assembleActive());
+    const { container } = render(<StrictMode><Announcer /></StrictMode>);
+    stepOnce();
+    expect(region(container).textContent).toBe('A cambió de 00h a 3Ah. PC cambió de 2000h a 2003h.');
+    act(() => s().setBase('dec'));
     expect(region(container).textContent).toBe('A cambió de 00h a 3Ah. PC cambió de 2000h a 2003h.');
   });
 
@@ -107,7 +133,7 @@ describe('Announcer', () => {
     const t = sentence(changes, 'hex');
     expect(t).toBe(
       'A cambió de 00h a 01h. B cambió de 00h a 01h. C cambió de 00h a 01h. D cambió de 00h a 01h. ' +
-        'E cambió de 00h a 01h. H cambió de 00h a 01h. Y 2 cambios más.',
+        'E cambió de 00h a 01h. H cambió de 00h a 01h. Hay 2 cambios más.',
     );
   });
 });

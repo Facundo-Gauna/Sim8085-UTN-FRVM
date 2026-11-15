@@ -3,7 +3,8 @@
 .seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 4px; overflow: hidden; }
 .seg button { border: 0; background: none; padding: 2px 8px; font: 600 11px/18px var(--mono); color: var(--ink-muted); }
 .seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
-.status .msg { display: inline-flex; align-items: center; gap: 4px; min-width: 0; flex: 1 1 12ch; color: var(--ink); }
-.status .msg.error { color: var(--danger); }
-.status .msg svg { flex: none; }
+.status .msg-slot { display: inline-flex; align-items: center; gap: 4px; min-width: 0; flex: 1 1 12ch; color: var(--ink); }
+.status .msg-slot.error { color: var(--danger); }
+.status .msg-slot svg { flex: none; }
 .status .msg-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.status .msg-slot:empty { display: block; flex: 0 0 0; margin-left: -16px; }

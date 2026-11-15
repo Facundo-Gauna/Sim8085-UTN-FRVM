@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useMemo } from 'react';
 import type { Change } from '@sim8085/core';
 import { fmt16, fmt8, type Base } from '../lib/format';
 import { useSession } from '../state/store';
@@ -18,7 +18,7 @@ export function sentence(changes: Change[], base: Base): string {
   });
   if (parts.length === 0) return '';
   const extra = sorted.length - parts.length;
-  return `${parts.join('. ')}.${extra > 0 ? ` Y ${extra} ${extra === 1 ? 'cambio más' : 'cambios más'}.` : ''}`;
+  return `${parts.join('. ')}.${extra > 0 ? ` Hay ${extra} ${extra === 1 ? 'cambio más' : 'cambios más'}.` : ''}`;
 }
 
 /** Región en vivo, oculta a la vista: anuncia los cambios de cada paso a lectores de pantalla. */
@@ -28,17 +28,14 @@ export function Announcer() {
   const base = useSession((s) => s.base);
   const version = useSession((s) => s.version);
   // Solo se recalcula cuando cambia la máquina: cambiar la base no re-anuncia.
-  const last = useRef<{ version: number; stale: boolean; text: string }>({ version: -1, stale: false, text: '' });
-  if (last.current.version !== version || last.current.stale !== stale) {
-    last.current = {
-      version,
-      stale,
-      text: machine && !stale ? sentence(machine.lastChanges(), base) : '',
-    };
-  }
+  const text = useMemo(
+    () => (machine && !stale ? sentence(machine.lastChanges(), base) : ''),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [version, stale],
+  );
   return (
     <div className="sr-only" aria-live="polite" aria-atomic="false">
-      {last.current.text}
+      {text}
     </div>
   );
 }

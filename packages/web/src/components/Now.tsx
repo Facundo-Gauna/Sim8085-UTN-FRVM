@@ -9,12 +9,15 @@ const AC_TITLE = 'AC (acarreo auxiliar) no figura en la plantilla de la cátedra
 /** Forma genérica de la instrucción: mnemónico y operandos tal como los define la ISA. */
 const formOf = (d: InstrDef) => (d.operands.length ? `${d.mnemonic} ${d.operands.join(',')}` : d.mnemonic);
 
-/** Texto de la línea fuente sin comentario ni espacios sobrantes. */
+const LABEL = /^[A-Za-z_@?.$][\w@?.$]*:\s*/;
+
+/** Texto de la línea fuente sin etiqueta, comentario ni espacios sobrantes. */
 const sourceOf = (text: string, line: number | undefined): string => {
   if (line === undefined) return '';
   const raw = text.split('\n')[line - 1] ?? '';
   const semi = raw.indexOf(';');
-  return (semi < 0 ? raw : raw.slice(0, semi)).trim();
+  const code = (semi < 0 ? raw : raw.slice(0, semi)).trim();
+  return code.replace(LABEL, '').trim();
 };
 
 const tStatesText = (t: InstrDef['tStates']) =>

@@ -67,4 +67,22 @@ describe('Now', () => {
     const { container } = render(<Now />);
     expect(container.textContent).toMatch(/inválid/i);
   });
+
+  it('quita la etiqueta de la línea fuente', () => {
+    loadProgram('LOOP: MVI A,5 ; comentario\nHLT\n');
+    render(<Now />);
+    expect(screen.getByText('MVI A,5')).toBeTruthy();
+  });
+
+  it('una etiqueta sola en su línea no afecta: se muestra la instrucción siguiente', () => {
+    loadProgram('INICIO:\n  MVI B,7\nHLT\n');
+    render(<Now />);
+    expect(screen.getByText('MVI B,7')).toBeTruthy();
+  });
+
+  it('una llamada a macro muestra el texto de la línea de la llamada', () => {
+    loadProgram('SUMA2 MACRO X\nADI X\nENDM\nSUMA2 5\nHLT\n');
+    render(<Now />);
+    expect(screen.getByText('SUMA2 5')).toBeTruthy();
+  });
 });
