@@ -67,4 +67,14 @@ describe('completionsFor', () => {
     expect(completionsFor('MO', '; texto ')).toEqual([]);
     expect(completionsFor('', 'MOV A,B ;')).toEqual([]);
   });
+
+  it('la inicial como respaldo solo con prefijos de hasta 2 letras', () => {
+    expect(labels(completionsFor('MOV', ''))).toEqual(['MOV']);
+    const lx = labels(completionsFor('LX', ''));
+    expect(lx[0]).toBe('LXI');
+    expect(lx).toContain('LDA'); // misma inicial, detrás
+    expect(lx.indexOf('LDA')).toBeGreaterThan(lx.indexOf('LXI'));
+    expect(labels(completionsFor('LXI', ''))).toEqual(['LXI']);
+    expect(labels(completionsFor('LHL', ''))).toEqual(['LHLD']);
+  });
 });

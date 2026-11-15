@@ -7,7 +7,7 @@
  *   no la agrega y no aparece el círculo.
  * - Margen del PC: `▶` en la línea actual.
  */
-import { RangeSet, type Extension } from '@codemirror/state';
+import { RangeSet, type ChangeSet, type Extension, type Text } from '@codemirror/state';
 import { gutter, GutterMarker, keymap, lineNumbers, type EditorView } from '@codemirror/view';
 import { decorationSpecs } from './decorations';
 
@@ -58,6 +58,29 @@ function markersOf(view: EditorView, kind: 'breakpoint' | 'current', marker: Gut
     .map((s) => s.line)
     .sort((a, b) => a - b);
   return RangeSet.of(lines.map((l) => marker.range(doc.line(l).from)));
+}
+
+/**
+ * Corre los puntos de corte con un cambio del texto, para que sigan a su
+ * instrucción. Regla: el inicio de la línea se mapea con asociación hacia
+ * adelante (lo insertado justo antes queda arriba). Se quita el punto si su
+ * línea desapareció entera: un borrado cubre todo su texto y además uno de
+ * sus saltos de línea. Unir la línea con la anterior (retroceso al inicio)
+ * lleva el punto con su texto.
+ */
+export function remapBreakpointLines(lines: Set<number>, changes: ChangeSet, oldDoc: Text, newDoc: Text): Set<number> {
+  const out = new Set<number>();
+  for (const n of lines) {
+    if (n < 1 || n > oldDoc.lines) continue;
+    const line = oldDoc.line(n);
+    let removed = false;
+    changes.iterChangedRanges((fromA, toA) => {
+      if (fromA <= line.from && toA >= line.to && (fromA < line.from || toA > line.to)) removed = true;
+    });
+    if (removed) continue;
+    out.add(newDoc.lineAt(changes.mapPos(line.from, 1)).number);
+  }
+  return out;
 }
 
 export function debugGutters(onToggle: ((line: number) => void) | undefined): Extension {

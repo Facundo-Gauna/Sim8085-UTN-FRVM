@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hoverInfo, renderHover } from './hover';
+import { hoverInfo, operandsInLine, renderHover } from './hover';
 
 describe('hoverInfo', () => {
   it('LDA: 3 bytes, 13 estados, sin banderas, de la cátedra', () => {
@@ -60,5 +60,11 @@ describe('hoverInfo', () => {
     expect(lda.className).toBe('sim-hover');
     expect(lda.querySelector('.sim-fuera-label')).toBeNull();
     expect(lda.querySelector('.sim-hover-meta')?.textContent).toBe('3 bytes · 13 estados T · Banderas: ninguna');
+  });
+
+  it('un `;` entre comillas no corta los operandos', () => {
+    expect(operandsInLine('MVI', "MVI A, ';' ; comentario")).toEqual(['A', "';'"]);
+    expect(operandsInLine('CPI', "  CPI ';'")).toEqual(["';'"]);
+    expect(hoverInfo('MVI', "MVI A, ';' ; comentario")).toMatchObject({ bytes: 2, tStates: '7' });
   });
 });

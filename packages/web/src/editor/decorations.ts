@@ -14,6 +14,7 @@
 import type { AsmMessage } from '@sim8085/core';
 import { RangeSetBuilder, StateEffect, StateField, type EditorState, type Extension, type Text } from '@codemirror/state';
 import { Decoration, EditorView, WidgetType, type DecorationSet } from '@codemirror/view';
+import { externalSync } from './sync';
 
 /** Largo máximo de un comentario (la misma regla que el ensamblador). */
 export const MAX_COMMENT = 80;
@@ -65,7 +66,7 @@ export function lineDecorations(args: LineDecorationArgs): DecorationSpec[] {
 }
 
 /** Posición del `;` que abre el comentario (fuera de comillas, como el lexer del core), o -1. */
-function commentStart(text: string): number {
+export function commentStart(text: string): number {
   let quote = false;
   for (let i = 0; i < text.length; i++) {
     if (text[i] === "'") quote = !quote;
@@ -190,6 +191,8 @@ export const marksField = StateField.define<MarksState>({
   update(value, tr) {
     let marks = value.marks;
     for (const e of tr.effects) if (e.is(setDecorations)) marks = e.value;
+    // Un cambio del usuario deja el ensamblado viejo: se oculta ya, sin esperar a la sesión.
+    if (tr.docChanged && !tr.annotation(externalSync) && !marks.stale) marks = { ...marks, stale: true };
     if (marks === value.marks && !tr.docChanged) return value;
     return compute(tr.state, marks);
   },

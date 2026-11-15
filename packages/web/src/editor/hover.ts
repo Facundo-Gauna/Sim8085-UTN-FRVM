@@ -13,6 +13,7 @@ import { ISA, DIRECTIVES, type InstrDef } from '@sim8085/core';
 import { hoverTooltip, type EditorView } from '@codemirror/view';
 import type { Extension } from '@codemirror/state';
 import { DIRECTIVE_HELP } from './completion';
+import { commentStart } from './decorations';
 import { tokenizeLine } from './asmLanguage';
 
 export interface HoverInfo {
@@ -52,15 +53,25 @@ function formsOf(mnemonic: string, defs: InstrDef[]): string {
   return forms.join(' / ');
 }
 
-/** Operandos escritos en la línea después del mnemónico (en mayúsculas, sin comentario). */
-function operandsInLine(mnemonic: string, lineText: string): string[] {
-  const code = lineText.split(';')[0] ?? '';
+/** Operandos escritos en la línea después del mnemónico (en mayúsculas fuera de comillas, sin comentario). */
+export function operandsInLine(mnemonic: string, lineText: string): string[] {
+  const c = commentStart(lineText);
+  const code = c < 0 ? lineText : lineText.slice(0, c);
   const m = new RegExp(`(?:^|[\\s:])${mnemonic}\\b(.*)$`, 'i').exec(code);
   if (!m) return [];
-  return m[1]!
-    .split(',')
-    .map((s) => s.trim().toUpperCase())
-    .filter((s) => s !== '');
+  // Comas fuera de comillas (`MVI A, ','`).
+  const parts: string[] = [];
+  let cur = '';
+  let quote = false;
+  for (const ch of m[1]!) {
+    if (ch === "'") quote = !quote;
+    if (ch === ',' && !quote) {
+      parts.push(cur);
+      cur = '';
+    } else cur += ch;
+  }
+  parts.push(cur);
+  return parts.map((s) => s.trim()).filter((s) => s !== '').map((s) => (s.startsWith("'") ? s : s.toUpperCase()));
 }
 
 /** La forma usada en la línea: los registros deben coincidir, los valores aceptan cualquier cosa. */

@@ -291,3 +291,52 @@ describe('Editor: depuración', () => {
     expect(counters[0]!.textContent).toContain('⚠');
   });
 });
+
+describe('Editor: fix ronda 1', () => {
+  const s = () => defaultSession.getState();
+  const mount = () => {
+    const file = activeFile();
+    const r = render(<Editor fileId={file.id} fontSize={16} />);
+    return { ...r, view: viewIn(r.container), file };
+  };
+
+  it('el punto de corte sigue a su instrucción al insertar una línea arriba', () => {
+    const { view, container } = mount();
+    act(() => s().assembleActive());
+    act(() => s().toggleBreakpoint(3)); // CMA
+    act(() => view.dispatch({ changes: { from: view.state.doc.line(2).from, insert: '        NOP\n' } }));
+    expect(s().breakpointLines).toEqual(new Set([4]));
+    act(() => s().assembleActive());
+    expect(s().breakpointLines).toEqual(new Set([4]));
+    expect(decorationSpecs(view.state)).toContainEqual({ kind: 'breakpoint', line: 4 });
+    expect(container.querySelectorAll('.cm-sim-bp')).toHaveLength(1);
+  });
+
+  it('un cambio externo (sync del store) no remapea', () => {
+    const { file } = mount();
+    act(() => s().setBreakpointLines(new Set([3])));
+    act(() => defaultSession.setState({
+      files: s().files.map((f) => (f.id === file.id ? { ...f, text: `NOP\n${f.text}` } : f)),
+    }));
+    expect(s().breakpointLines).toEqual(new Set([3]));
+  });
+
+  it('un cambio sin efecto en los puntos de corte no publica un conjunto nuevo', () => {
+    const { view } = mount();
+    act(() => s().setBreakpointLines(new Set([3])));
+    const spy = vi.spyOn(s(), 'setBreakpointLines');
+    act(() => view.dispatch({ changes: { from: view.state.doc.line(5).to, insert: ' ' } }));
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('tras HLT el PC sobre un DB no muestra línea actual', () => {
+    const file = activeFile();
+    act(() => s().setText(file.id, 'HLT\nDB 5\n'));
+    const { view } = mount();
+    act(() => s().assembleActive());
+    expect(decorationSpecs(view.state)).toContainEqual({ kind: 'current', line: 1 });
+    act(() => s().step());
+    expect(s().machine!.cpu.halted).toBe(true);
+    expect(decorationSpecs(view.state).some((d) => d.kind === 'current')).toBe(false);
+  });
+});

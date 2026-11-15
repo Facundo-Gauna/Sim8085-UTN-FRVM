@@ -488,3 +488,34 @@ describe('fix ronda 1: estado y validación', () => {
     }
   });
 });
+
+describe('Task 6 fix ronda 1: stale y puntos de corte', () => {
+  const STALE = 'El código cambió: volvé a ensamblar';
+
+  it('setText tras ensamblar avisa que el código cambió; re-ensamblar lo reemplaza', () => {
+    const st = fresh();
+    const id = st.getState().activeId;
+    st.getState().assembleActive();
+    st.getState().setText(id, `${SAMPLE.text}NOP\n`);
+    expect(st.getState().status).toEqual({ kind: 'info', text: STALE });
+    const before = st.getState().status;
+    st.getState().setText(id, `${SAMPLE.text}NOP\nNOP\n`);
+    expect(st.getState().status).toBe(before); // no se vuelve a crear
+    st.getState().assembleActive();
+    expect(st.getState().status?.text).toMatch(/^Ensamblado correcto/);
+  });
+
+  it('setText sin ensamblar no avisa', () => {
+    const st = fresh();
+    st.getState().setText(st.getState().activeId, 'NOP\n');
+    expect(st.getState().status).toBeNull();
+  });
+
+  it('setBreakpointLines reemplaza el conjunto por uno nuevo', () => {
+    const st = fresh();
+    const lines = new Set([3, 4]);
+    st.getState().setBreakpointLines(lines);
+    expect(st.getState().breakpointLines).toEqual(new Set([3, 4]));
+    expect(st.getState().breakpointLines).not.toBe(lines);
+  });
+});

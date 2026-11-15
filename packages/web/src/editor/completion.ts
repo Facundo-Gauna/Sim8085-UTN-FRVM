@@ -93,12 +93,13 @@ export function completionsFor(prefix: string, lineBeforeCursor: string): AsmCom
 
   if (OP_POSITION.test(lineBeforeCursor)) {
     // Primero los que empiezan con lo escrito; después los de la misma inicial
-    // (con `MO` también aparece `MVI`: ayuda a quien no recuerda el nombre exacto).
+    // (con `MO` también aparece `MVI`: ayuda a quien no recuerda el nombre exacto),
+    // solo mientras lo escrito tiene hasta 2 letras.
     const exact: AsmCompletion[] = [];
     const near: AsmCompletion[] = [];
     const add = (label: string, detail: string, fueraDeCatedra: boolean) => {
       if (matches(label)) exact.push({ label: cased(label), detail, fueraDeCatedra });
-      else if (label.startsWith(up.slice(0, 1))) near.push({ label: cased(label), detail, fueraDeCatedra });
+      else if (up.length <= 2 && label.startsWith(up.slice(0, 1))) near.push({ label: cased(label), detail, fueraDeCatedra });
     };
     for (const [m, summary] of MNEMONIC_SUMMARY) add(m, summary, false);
     for (const d of DIRECTIVES) add(d, DIRECTIVE_HELP[d] ?? '', true);

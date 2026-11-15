@@ -72,6 +72,8 @@ export interface Session {
   stop(): void;
   continueAfterPause(): void;
   toggleBreakpoint(line: number): void;
+  /** Reemplaza las líneas de los puntos de corte (el editor las corre al editar); se validan al ensamblar. */
+  setBreakpointLines(lines: Set<number>): void;
   setMemoryByte(addr: number, valueText: string): void;
   clearUserMemory(): void;
   setInput(port: number, valueText: string): void;
@@ -82,6 +84,7 @@ export interface Session {
 const PAUSE_BATCH = 100_000;
 const NOT_READY: Status = { kind: 'error', text: 'Ensamblá primero (F5)' };
 const HALTED: Status = { kind: 'info', text: 'Detenido (HLT)' };
+const STALE: Status = { kind: 'info', text: 'El código cambió: volvé a ensamblar' };
 
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 
@@ -183,8 +186,14 @@ export function createSession(): StoreApi<Session> {
       setText(id, text) {
         const files = get().files.map((f) => (f.id === id ? { ...f, text } : f));
         // La máquina se conserva, pero con stale = true la UI no la muestra.
-        if (id === get().activeId) set({ files, stale: true, pausePrompt: false });
-        else set({ files });
+        if (id !== get().activeId) {
+          set({ files });
+          return;
+        }
+        // Con un ensamblado a la vista, avisa una vez (sin crear un status nuevo en cada tecla).
+        const { asm, stale, status } = get();
+        const warn = asm !== null && (!stale || status?.text !== STALE.text);
+        set({ files, stale: true, pausePrompt: false, ...(warn ? { status: STALE } : {}) });
       },
 
       setActive(id) {
@@ -393,6 +402,10 @@ export function createSession(): StoreApi<Session> {
           lines.add(line);
         }
         set({ breakpointLines: lines, ...(r ? touch() : {}) });
+      },
+
+      setBreakpointLines(lines) {
+        set({ breakpointLines: new Set(lines) });
       },
 
       setMemoryByte(addr, valueText) {

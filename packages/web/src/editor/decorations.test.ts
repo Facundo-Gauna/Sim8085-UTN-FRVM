@@ -81,3 +81,25 @@ describe('commentLength', () => {
     expect(commentLength('; ' + 'x'.repeat(81))).toBe(81);
   });
 });
+
+describe('marksField', () => {
+  it('un cambio del usuario oculta en la misma transacción la línea actual, puntos y errores', async () => {
+    const { EditorState } = await import('@codemirror/state');
+    const { marksField, setDecorations, decorationSpecs } = await import('./decorations');
+    const { externalSync } = await import('./sync');
+    let state = EditorState.create({ doc: 'NOP\nHLT\n', extensions: marksField });
+    state = state.update({
+      effects: setDecorations.of({
+        asmMessages: [{ line: 2, severity: 'error', message: 'x' }],
+        currentLine: 1,
+        breakpointLines: new Set([2]),
+        stale: false,
+      }),
+    }).state;
+    expect(decorationSpecs(state).map((d) => d.kind).sort()).toEqual(['breakpoint', 'current', 'error']);
+    const synced = state.update({ changes: { from: 0, insert: ' ' }, annotations: externalSync.of(true) }).state;
+    expect(decorationSpecs(synced)).toHaveLength(3);
+    const edited = state.update({ changes: { from: 0, insert: ' ' } }).state;
+    expect(decorationSpecs(edited)).toEqual([]);
+  });
+});
