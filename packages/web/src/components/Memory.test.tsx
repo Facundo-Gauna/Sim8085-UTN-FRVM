@@ -1,11 +1,14 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Memory } from './Memory';
 import { defaultSession } from '../state/store';
 
 const INITIAL = defaultSession.getState();
 beforeEach(() => defaultSession.setState(INITIAL, true));
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 const s = () => defaultSession.getState();
 const assembleSample = () => act(() => s().assembleActive());
@@ -87,7 +90,11 @@ describe('Memory', () => {
     fireEvent.change(input, { target: { value: '01' } });
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(s().machine!.canBack).toBe(false);
-    expect(screen.getByText(/historial de pasos/)).toBeTruthy();
+    expect(s().status?.text).toMatch(/historial/);
+    // La fuente única del aviso es el store: el panel no repite la nota.
+    expect(screen.queryByText(/historial/)).toBeNull();
+    act(() => s().assembleActive());
+    expect(screen.queryByText(/historial/)).toBeNull();
   });
 
   it('celda cambiada tras el paso STA del ejemplo: 0041h = C5h', () => {
@@ -156,5 +163,127 @@ describe('Memory', () => {
     render(<Memory />);
     expect(screen.getByText('Ensamblá para ver la memoria')).toBeTruthy();
     expect(screen.queryAllByRole('gridcell')).toHaveLength(0);
+  });
+
+  it('el editor abierto se cierra al dar un paso', () => {
+    assembleSample();
+    render(<Memory />);
+    fireEvent.doubleClick(gridcell(/^0040h/));
+    expect(screen.getByLabelText(/Valor de 0040h/)).toBeTruthy();
+    act(() => s().step());
+    expect(screen.queryByLabelText(/Valor de 0040h/)).toBeNull();
+  });
+
+  it('el editor se cierra al re-ensamblar y no reaparece con el borrador viejo', () => {
+    assembleSample();
+    render(<Memory />);
+    fireEvent.doubleClick(gridcell(/^0040h/));
+    fireEvent.change(screen.getByLabelText(/Valor de 0040h/), { target: { value: '77' } });
+    act(() => s().assembleActive());
+    expect(screen.queryByLabelText(/Valor de 0040h/)).toBeNull();
+    fireEvent.doubleClick(gridcell(/^0040h/));
+    expect((screen.getByLabelText(/Valor de 0040h/) as HTMLInputElement).value).toBe('3A');
+  });
+
+  it('el editor se cierra cuando el código queda desactualizado', () => {
+    assembleSample();
+    render(<Memory />);
+    fireEvent.doubleClick(gridcell(/^0040h/));
+    act(() => s().setText(s().activeId, 'NOP'));
+    expect(screen.queryByLabelText(/Valor de 0040h/)).toBeNull();
+    expect(screen.getByText('Ensamblá para ver la memoria')).toBeTruthy();
+  });
+
+  it('Ir a con dirección no alineada enfoca esa celda', () => {
+    assembleSample();
+    render(<Memory />);
+    goto('2003h');
+    const c = gridcell(/^2003h/);
+    expect(document.activeElement).toBe(c);
+    expect(c.tabIndex).toBe(0);
+  });
+
+  it('doble clic dentro del editor no reinicia el borrador', () => {
+    assembleSample();
+    render(<Memory />);
+    fireEvent.doubleClick(gridcell(/^0040h/));
+    const input = screen.getByLabelText(/Valor de 0040h/) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '12' } });
+    fireEvent.doubleClick(input);
+    expect((screen.getByLabelText(/Valor de 0040h/) as HTMLInputElement).value).toBe('12');
+  });
+
+  it('en dec y bin el editor muestra el sufijo h', () => {
+    assembleSample();
+    render(<Memory />);
+    fireEvent.doubleClick(gridcell(/^0040h/));
+    expect(document.querySelector('.cell-hint')).toBeNull();
+    cleanup();
+    act(() => s().setBase('dec'));
+    render(<Memory />);
+    fireEvent.doubleClick(gridcell(/^64: 58/));
+    expect(document.querySelector('.cell-hint')?.textContent).toBe('h');
+    expect(screen.getByLabelText(/en hexadecimal/)).toBeTruthy();
+  });
+
+  it('las celdas cargadas por el alumno lo dicen en el aria-label', () => {
+    assembleSample();
+    render(<Memory />);
+    expect(gridcell(/^0040h: 3Ah \(cargado por vos\)$/).getAttribute('title')).toBe('Dato cargado por vos');
+    expect(gridcell(/^0041h: 00h$/)).toBeTruthy();
+  });
+
+  it('modo de 16 columnas con un contenedor ancho', () => {
+    let cb: ResizeObserverCallback = () => {};
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(c: ResizeObserverCallback) {
+          cb = c;
+        }
+        observe() {}
+        disconnect() {}
+        unobserve() {}
+      },
+    );
+    assembleSample();
+    render(<Memory />);
+    expect(screen.getByRole('rowheader', { name: '0008h' })).toBeTruthy();
+    act(() => cb([{ contentRect: { width: 600 } } as ResizeObserverEntry], {} as ResizeObserver));
+    expect(screen.queryByRole('rowheader', { name: '0008h' })).toBeNull();
+    expect(screen.getByRole('rowheader', { name: '0010h' })).toBeTruthy();
+    expect(within(screen.getByRole('rowheader', { name: '0040h' }).closest('tr')!).getAllByRole('gridcell')).toHaveLength(16);
+  });
+
+  it('fin de memoria: ArrowRight en FFFFh se queda y Fila siguiente se deshabilita', () => {
+    assembleSample();
+    render(<Memory />);
+    goto('FFFFh');
+    const c = gridcell(/^FFFFh/);
+    expect(document.activeElement).toBe(c);
+    fireEvent.keyDown(c, { key: 'ArrowRight' });
+    expect(document.activeElement).toBe(gridcell(/^FFFFh/));
+    expect((screen.getByRole('button', { name: 'Fila siguiente' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole('rowheader', { name: 'FFF8h' })).toBeTruthy();
+  });
+
+  it('F2 abre el editor', () => {
+    assembleSample();
+    render(<Memory />);
+    const c = gridcell(/^0040h/);
+    act(() => c.focus());
+    fireEvent.keyDown(c, { key: 'F2' });
+    expect(screen.getByLabelText(/Valor de 0040h/)).toBeTruthy();
+  });
+
+  it('ArrowDown en la última fila desplaza la ventana', () => {
+    assembleSample();
+    render(<Memory />);
+    goto('0078h');
+    const c = gridcell(/^0078h/);
+    expect(document.activeElement).toBe(c);
+    fireEvent.keyDown(c, { key: 'ArrowDown' });
+    expect(screen.queryByRole('rowheader', { name: '0000h' })).toBeNull();
+    expect(document.activeElement).toBe(gridcell(/^0080h/));
   });
 });

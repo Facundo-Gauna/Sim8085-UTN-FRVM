@@ -50,7 +50,6 @@
   font: 400 13px/20px var(--mono);
 }
 .mem-err { padding: 4px 12px; font: 400 12px/18px var(--sans); color: var(--danger); }
-.mem-note { margin: 0; padding: 0 12px 4px; font: 400 12px/18px var(--sans); color: var(--ink-muted); }
 .mem-empty { display: grid; gap: 4px; justify-items: center; padding: 16px 12px; color: var(--ink-muted); font: 400 13px/18px var(--sans); }
 .mem-foot { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 12px 12px; }
 .mem-foot button {
@@ -61,3 +60,5 @@
   font: 500 12px/18px var(--sans);
 }
 .mem-foot button:disabled { color: var(--ink-muted); cursor: default; }
+.cell-hint { margin-left: 2px; color: var(--ink-muted); }
+.cell-edit { width: calc(100% - 1.2ch); }

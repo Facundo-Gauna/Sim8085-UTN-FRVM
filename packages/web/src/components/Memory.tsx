@@ -42,9 +42,18 @@ export function Memory() {
   const [editing, setEditing] = useState<number | null>(null);
   const [draft, setDraft] = useState('');
   const [editError, setEditError] = useState<string | null>(null);
-  const [lostHistory, setLostHistory] = useState(false);
   const pendingFocus = useRef<number | null>(null);
   const gotoId = useId();
+  const version = useSession((s) => s.version);
+
+  // Un editor abierto es de la máquina y el estado que se veían al abrirlo: si la
+  // máquina cambia (paso, reset, re-ensamblado), queda desactualizada o desaparece,
+  // se cancela. Confirmar una edición también sube `version`, pero ya cerró el editor.
+  useEffect(() => {
+    setEditing(null);
+    setEditError(null);
+    setDraft('');
+  }, [machine, stale, version]);
 
   useEffect(() => {
     const el = rootRef.current;
@@ -80,6 +89,7 @@ export function Memory() {
     setGotoError(null);
     setView(clampView(p.value));
     setFocusAddr(p.value);
+    pendingFocus.current = p.value;
   };
 
   const moveTo = (addr: number) => {
@@ -113,9 +123,7 @@ export function Memory() {
       setEditError(p.error);
       return;
     }
-    const hadHistory = live.canBack;
     setMemoryByte(editing, draft);
-    if (hadHistory) setLostHistory(true);
     closeEditor(true);
   };
 
@@ -192,7 +200,9 @@ export function Memory() {
       if (addr === pc) cls.push('pc');
       if (user) cls.push('user');
       const label =
-        `${fmt16(addr, base)}: ${fmt8(v, base)}` + (prev !== undefined ? ` (cambió desde ${fmt8(prev, base)})` : '');
+        `${fmt16(addr, base)}: ${fmt8(v, base)}` +
+        (prev !== undefined ? ` (cambió desde ${fmt8(prev, base)})` : '') +
+        (user ? ' (cargado por vos)' : '');
       cells.push(
         <td
           key={addr}
@@ -204,10 +214,14 @@ export function Memory() {
           title={user ? 'Dato cargado por vos' : undefined}
           tabIndex={editing === null && addr === roving ? 0 : -1}
           onFocus={() => setFocusAddr(addr)}
-          onDoubleClick={() => openEditor(addr)}
+          onDoubleClick={(e) => {
+            if (e.target instanceof HTMLInputElement) return;
+            openEditor(addr);
+          }}
           onKeyDown={(e) => onCellKey(e, addr)}
         >
           {editing === addr ? (
+            <>
             <input
               className="cell-edit mono"
               aria-label={`Valor de ${fmt16(addr, 'hex')} en hexadecimal`}
@@ -224,6 +238,8 @@ export function Memory() {
                 else if (e.key === 'Escape') closeEditor(true);
               }}
             />
+            {base !== 'hex' && <span className="cell-hint" aria-hidden="true">h</span>}
+            </>
           ) : (
             <>
               {fmt8(v, base)}
@@ -259,9 +275,6 @@ export function Memory() {
         </table>
       </div>
       {editError && <div role="alert" className="mem-err">{editError}</div>}
-      {lostHistory && !live.canBack && (
-        <p className="mem-note">Memoria editada: se borró el historial de pasos.</p>
-      )}
       <div className="mem-foot">
         <button type="button" onClick={() => shiftRows(-1)} disabled={start === 0}>Fila anterior</button>
         <button type="button" onClick={() => shiftRows(1)} disabled={start >= maxStart}>Fila siguiente</button>
