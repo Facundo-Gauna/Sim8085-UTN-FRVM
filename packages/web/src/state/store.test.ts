@@ -170,6 +170,16 @@ describe('ejecución', () => {
     expect(st.getState().pausePrompt).toBe(false);
   });
 
+  it('promptPause pone pausePrompt solo con una máquina lista', () => {
+    const st = fresh();
+    st.getState().promptPause();
+    expect(st.getState().pausePrompt).toBe(false);
+    st.getState().setText(st.getState().activeId, LOOP);
+    st.getState().assembleActive();
+    st.getState().promptPause();
+    expect(st.getState().pausePrompt).toBe(true);
+  });
+
   it('tanda chica que agota la cuota → null y sin pausePrompt (sigue corriendo)', () => {
     const st = fresh();
     st.getState().setText(st.getState().activeId, LOOP);

@@ -73,6 +73,8 @@ export interface Session {
   runBatch(maxInstructions: number): StopReason | null;
   stop(): void;
   continueAfterPause(): void;
+  /** El bucle animado de la UI (tandas chicas) llegó a PAUSE_BATCH instrucciones: pregunta si seguir. */
+  promptPause(): void;
   toggleBreakpoint(line: number): void;
   /** Reemplaza las líneas de los puntos de corte (el editor las corre al editar); se validan al ensamblar. */
   setBreakpointLines(lines: Set<number>): void;
@@ -84,7 +86,7 @@ export interface Session {
 }
 
 /** Tandas de este tamaño o más que llegan al límite preguntan si seguir. */
-const PAUSE_BATCH = 100_000;
+export const PAUSE_BATCH = 100_000;
 const NOT_READY: Status = { kind: 'error', text: 'Ensamblá primero (F5)' };
 const HALTED: Status = { kind: 'info', text: 'Detenido (HLT)' };
 const STALE: Status = { kind: 'info', text: 'El código cambió: volvé a ensamblar' };
@@ -388,6 +390,10 @@ export function createSession(): StoreApi<Session> {
 
       continueAfterPause() {
         set({ pausePrompt: false });
+      },
+
+      promptPause() {
+        if (ready()) set({ pausePrompt: true });
       },
 
       toggleBreakpoint(line) {

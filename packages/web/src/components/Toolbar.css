@@ -1,0 +1,142 @@
+/* Barra de herramientas, pestañas de archivo y avisos en la página: solo tokens. */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 12px 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line-strong);
+  min-width: 0;
+}
+/* Los controles se alinean al centro de la fila; las pestañas se apoyan en el borde inferior. */
+.toolbar > :not(.tabs):not(.banner) { margin-bottom: 8px; }
+
+/* ---- Pestañas de archivo ---- */
+.tabs {
+  display: flex;
+  align-self: flex-end;
+  gap: 2px;
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.tab-wrap {
+  display: flex;
+  align-items: center;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 4px 4px 0 0;
+  background: none;
+  flex: none;
+}
+.tab-wrap[data-selected] {
+  background: var(--bg);
+  border-color: var(--line-strong);
+  border-top: 2px solid var(--accent);
+  margin-bottom: -1px;
+  padding-bottom: 1px;
+}
+.tab {
+  border: 0;
+  background: none;
+  padding: 8px 4px 8px 12px;
+  font: 500 13px/18px var(--mono);
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+.tab[aria-selected="true"] { color: var(--ink); }
+.tab:hover { color: var(--ink); }
+.tab:focus-visible { outline-offset: -2px; }
+.tab-dirty { margin-left: 6px; color: var(--ink-muted); }
+.tab-x {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-right: 6px;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  color: var(--ink-muted);
+}
+.tab-x:hover { background: var(--surface-2); color: var(--ink); }
+
+/* ---- Botones ---- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--ink);
+  font: 500 14px/20px var(--sans);
+  white-space: nowrap;
+}
+.btn:hover:not(:disabled) { background: var(--surface-2); }
+.btn:disabled { color: var(--ink-muted); border-color: var(--line); background: none; cursor: not-allowed; }
+.btn.icon { width: 32px; padding: 0; justify-content: center; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn.primary:hover:not(:disabled) { background: var(--accent); }
+.btn.primary:disabled { background: none; color: var(--ink-muted); border-color: var(--line); }
+.btn.danger { color: var(--danger); border-color: var(--danger); }
+.btn.run { min-width: 108px; }
+
+.tb-group { display: flex; gap: 4px; }
+.tb-group.files { margin-right: auto; }
+
+/* ---- Campo Inicio ---- */
+.tb-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: var(--surface);
+}
+.tb-field input {
+  width: 7ch;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--ink);
+  font: 500 14px/20px var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.tb-field input:focus-visible { outline: none; }
+.tb-field:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tb-field[data-invalid] { border-color: var(--danger); }
+.tb-field[data-invalid] input { text-decoration: wavy underline var(--danger); text-underline-offset: 4px; }
+
+/* ---- Velocidad ---- */
+.tb-speed { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-muted); }
+.tb-speed input { width: 88px; accent-color: var(--accent); }
+
+/* ---- Avisos dentro de la página (confirmar cierre, pausa por límite) ---- */
+.banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 8px 12px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line-strong);
+  animation: banner-in 160ms ease-out;
+}
+.toolbar > .banner {
+  order: 99;
+  flex: 1 0 100%;
+  margin: 0 -12px;
+  border-bottom: 0;
+  border-top: 1px solid var(--line-strong);
+}
+.banner p { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ink); }
+.banner.pause p svg { color: var(--warning); flex: none; }
+.banner-actions { display: flex; gap: 8px; }
+@keyframes banner-in { from { opacity: 0; } to { opacity: 1; } }

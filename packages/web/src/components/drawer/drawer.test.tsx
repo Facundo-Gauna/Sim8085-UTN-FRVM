@@ -418,3 +418,13 @@ describe('Puertos: foco y ayuda', () => {
     expect(screen.getByLabelText('Puerto en hexadecimal').getAttribute('placeholder')).toBe('05h');
   });
 });
+
+describe('Drawer: initialCollapsed', () => {
+  it('arranca plegado y se abre solo al detenerse en HLT', () => {
+    render(<Drawer initialCollapsed />);
+    expect(screen.getByRole('button', { name: 'Desplegar cajón' }).getAttribute('aria-expanded')).toBe('false');
+    act(() => s().assembleActive());
+    run();
+    expect(screen.getByRole('button', { name: 'Plegar cajón' })).toBeTruthy();
+  });
+});

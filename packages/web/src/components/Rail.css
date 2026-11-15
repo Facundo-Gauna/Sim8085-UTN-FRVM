@@ -1,0 +1,45 @@
+/* Barra lateral (MASTER §8): solo tokens. */
+.rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-right: 1px solid var(--line);
+  background: var(--bg);
+  min-height: 0;
+}
+.rail ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+
+/* Logotipo DIP-40: cuerpo grafito, muesca del color de fondo, patas finas. */
+.chip { display: block; flex: none; margin-bottom: 4px; }
+.chip-body, .chip-pin rect { fill: var(--chip); }
+.chip-notch { fill: var(--bg); }
+.chip-text { fill: var(--on-chip); font: 600 10px/1 var(--mono); letter-spacing: .02em; }
+
+.rail-btn {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--ink-muted);
+}
+.rail-btn:hover { background: var(--surface-2); color: var(--ink); }
+.rail-btn[aria-current="page"] { color: var(--accent); background: var(--surface-2); }
+.rail-btn[aria-disabled="true"] { cursor: default; }
+.rail-btn[aria-disabled="true"]:hover { color: var(--ink-muted); }
+
+.rail-theme {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+}
+.rail-btn.small { width: 32px; height: 28px; border-radius: 2px; }
+.rail-btn.small[aria-pressed="true"] { background: var(--ink); color: var(--bg); }

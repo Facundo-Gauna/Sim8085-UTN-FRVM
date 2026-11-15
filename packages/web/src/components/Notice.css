@@ -1,0 +1,37 @@
+/* Aviso de la versión web y aviso móvil: solo tokens. */
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 4px 12px;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--warning);
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.notice svg { flex: none; }
+
+.mobile-notice {
+  min-height: 100vh;
+  display: grid;
+  place-content: center;
+  justify-items: start;
+  gap: 24px;
+  padding: 48px 16px;
+  background: var(--bg);
+}
+.mobile-notice p {
+  display: flex;
+  gap: 12px;
+  margin: 0;
+  max-width: 34ch;
+  font-size: 16px;
+  line-height: 26px;
+  color: var(--ink);
+}
+.mobile-notice p svg { flex: none; margin-top: 3px; color: var(--ink-muted); }
+.mobile-notice .chip-body { fill: var(--chip); }
+.mobile-notice .chip-notch { fill: var(--bg); }
+.mobile-notice .chip-text { fill: var(--on-chip); font: 600 10px/1 var(--mono); }

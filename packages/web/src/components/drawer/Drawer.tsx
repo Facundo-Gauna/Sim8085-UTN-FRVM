@@ -35,9 +35,10 @@ interface Seen {
   status: unknown;
 }
 
-export function Drawer() {
+/** `initialCollapsed`: la pantalla del simulador lo arranca plegado (MASTER §8: se abre solo cuando hay algo nuevo). */
+export function Drawer({ initialCollapsed = false }: { initialCollapsed?: boolean } = {}) {
   const [tab, setTab] = useState<TabId>('salida');
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [dots, setDots] = useState<ReadonlySet<TabId>>(new Set());
   const refs = useRef<Partial<Record<TabId, HTMLButtonElement | null>>>({});
   const seen = useRef<Seen | null>(null);
