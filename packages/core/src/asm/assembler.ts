@@ -32,6 +32,12 @@ export interface AssembleResult {
   lineToAddress: Map<number, number>;
   /** Dirección de inicio de instrucción → línea. */
   addressToLine: Map<number, number>;
+  /**
+   * Punto de entrada: dirección de la primera instrucción en orden del fuente
+   * (DB/DW/DS no cuentan). Sin instrucciones, el origen. Es donde arranca la
+   * Machine; `start`/`end` quedan para las métricas.
+   */
+  entry: number;
   /** Primer y último byte emitido. */
   start: number;
   end: number;
@@ -319,6 +325,8 @@ export function assemble(source: string, opts: { start?: number } = {}): Assembl
       addressToLine.set(b.address, b.line);
     }
   }
+  // `rows` sigue en orden del fuente (expandido) hasta el sort de abajo.
+  const entry = rows.find((r) => r.instr !== undefined)?.address ?? origin;
   rows.sort((a, b) => a.address - b.address);
   const empty = start === Infinity;
 
@@ -330,6 +338,7 @@ export function assemble(source: string, opts: { start?: number } = {}): Assembl
     symbols,
     lineToAddress,
     addressToLine,
+    entry,
     start: empty ? origin : start,
     end: empty ? origin : end,
     sizeBytes: memory.size,

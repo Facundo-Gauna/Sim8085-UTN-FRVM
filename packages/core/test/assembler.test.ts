@@ -251,3 +251,32 @@ describe('assemble: errores y advertencias', () => {
     ]);
   });
 });
+
+describe('assemble: punto de entrada (entry)', () => {
+  it('ignora datos DB en direcciones más bajas', () => {
+    const r = assemble('ORG 2000H\nLDA 2050H\nHLT\nORG 0040H\nDB 3AH');
+    expect(r.entry).toBe(0x2000);
+    expect(r.start).toBe(0x0040);
+  });
+
+  it('primera instrucción del fuente, aunque haya código en direcciones más bajas después', () => {
+    const r = assemble('ORG 3000H\nLXI SP, 4000H\nCALL SUB\nHLT\nORG 2000H\nSUB: MVI A, 5\nRET');
+    expect(r.entry).toBe(0x3000);
+    expect(r.start).toBe(0x2000);
+  });
+
+  it('manejador en 0034h escrito primero', () => {
+    const r = assemble('ORG 0034H\nEI\nRET\nORG 2000H\nHLT');
+    expect(r.entry).toBe(0x0034);
+  });
+
+  it('sin instrucciones → el origen', () => {
+    expect(assemble('DB 1, 2', { start: 0x100 }).entry).toBe(0x100);
+    expect(assemble('', { start: 0x2000 }).entry).toBe(0x2000);
+  });
+
+  it('DS y DW no cuentan como entrada', () => {
+    const r = assemble('ORG 10H\nX DS 2\nDW 1234H\nNOP');
+    expect(r.entry).toBe(0x14);
+  });
+});

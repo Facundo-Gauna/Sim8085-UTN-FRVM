@@ -67,7 +67,7 @@ describe('Machine: paso atrás', () => {
   it('back() con OUT: outputs vuelve a su largo', () => {
     const m = load('MVI A, 3AH\nOUT 01H\nHLT');
     m.run();
-    expect(m.outputs).toEqual([{ port: 1, value: 0x3a, step: 1 }]);
+    expect(m.outputs).toEqual([{ port: 1, value: 0x3a, step: 2 }]);
     m.back(); // HLT
     expect(m.outputs).toHaveLength(1);
     m.back(); // OUT
@@ -296,7 +296,7 @@ describe('Machine: reset y memoria del alumno', () => {
     m.inputs.set(5, 0x77);
     m.setBreakpoint(3);
     expect(m.run().reason).toBe('breakpoint');
-    expect(m.outputs).toEqual([{ port: 1, value: 0x77, step: 1 }]);
+    expect(m.outputs).toEqual([{ port: 1, value: 0x77, step: 2 }]);
     m.raise('TRAP');
     m.reset();
     expect(m.outputs).toEqual([]);
@@ -317,12 +317,15 @@ describe('Machine: reset y memoria del alumno', () => {
     expect(m.memory[0x41]).toBe(0x3a);
   });
 
-  it('setMemory no entra al historial', () => {
-    const m = load('NOP\nNOP');
-    m.step();
-    m.setMemory(0x100, 9);
-    m.back();
-    expect(m.memory[0x100]).toBe(9);
+  it('setMemory borra el historial de paso atrás', () => {
+    const m = load('MVI A, 7\nSTA 0050H');
+    m.step(); m.step();
+    expect(m.memory[0x50]).toBe(7);
+    m.setMemory(0x50, 9);
+    expect(m.canBack).toBe(false);
+    expect(m.back()).toBe(false);
+    expect(m.memory[0x50]).toBe(9);
+    expect(m.lastChanges()).toEqual([]);
   });
 });
 
@@ -333,8 +336,8 @@ describe('Machine: E/S', () => {
     m.run();
     expect(m.cpu.B).toBe(0x77);
     expect(m.outputs).toEqual([
-      { port: 2, value: 0, step: 3 },
-      { port: 3, value: 0x77, step: 5 },
+      { port: 2, value: 0, step: 4 },
+      { port: 3, value: 0x77, step: 6 },
     ]);
   });
 });
@@ -430,5 +433,98 @@ describe('Machine: errores', () => {
     expect(m.stepCount).toBe(1);
     expect(m.back()).toBe(true);
     expect(m.cpu.PC).toBe(0x2000);
+  });
+});
+
+describe('Machine: punto de entrada', () => {
+  it('datos DB en una dirección más baja que el código', () => {
+    const m = load('ORG 2000H\nLDA 2050H\nHLT\nORG 0040H\nDB 3AH');
+    expect(m.cpu.PC).toBe(0x2000);
+    expect(m.run().reason).toBe('halt');
+    expect(m.cpu.A).toBe(0);
+    m.reset();
+    expect(m.cpu.PC).toBe(0x2000);
+  });
+
+  it('manejador en 0034h antes del programa principal en 2000h', () => {
+    const m = load([
+      'ORG 0034H',
+      'MVI B, 55H',
+      'EI',
+      'RET',
+      'ORG 2000H',
+      'LXI SP, 3000H',
+      'MVI C, 1',
+      'HLT',
+    ].join('\n'));
+    expect(m.cpu.PC).toBe(0x0034); // el código empieza en el manejador (primera instrucción del fuente)
+  });
+
+  it('principal en 3000h y subrutina en 2000h', () => {
+    const m = load([
+      'ORG 3000H',
+      'LXI SP, 4000H',
+      'CALL SUB',
+      'HLT',
+      'ORG 2000H',
+      'SUB: MVI A, 5',
+      'RET',
+    ].join('\n'));
+    expect(m.cpu.PC).toBe(0x3000);
+    expect(m.run().reason).toBe('halt');
+    expect(m.cpu.A).toBe(5);
+    expect(m.cpu.PC).toBe(0x3007);
+    m.reset();
+    expect(m.cpu.PC).toBe(0x3000);
+  });
+});
+
+describe('Machine: identidad de objetos y snapshots', () => {
+  it('flags, masks y pending conservan su identidad tras step/back/reset y POP PSW', () => {
+    const m = load('LXI SP, 3000H\nLXI B, 00FFH\nPUSH B\nPOP PSW\nSTC\nMVI A, 08H\nSIM\nHLT');
+    const { flags, masks, pending } = m.cpu;
+    m.run();
+    expect(m.cpu.flags).toBe(flags);
+    expect(flags).toEqual({ S: 1, Z: 1, AC: 1, P: 1, CY: 1 });
+    expect(masks).toEqual({ m55: false, m65: false, m75: false });
+    while (m.back());
+    expect(m.cpu.flags).toBe(flags);
+    expect(m.cpu.masks).toBe(masks);
+    expect(m.cpu.pending).toBe(pending);
+    expect(flags).toEqual({ S: 0, Z: 0, AC: 0, P: 0, CY: 0 });
+    expect(masks).toEqual({ m55: true, m65: true, m75: true });
+    m.raise('TRAP');
+    m.reset();
+    expect(m.cpu.flags).toBe(flags);
+    expect(m.cpu.pending).toBe(pending);
+    expect(pending.trap).toBe(false);
+  });
+
+  it('el snapshot no comparte objetos con el CPU vivo', () => {
+    const m = load('STC\nNOP');
+    m.step();
+    expect(m.cpu.flags.CY).toBe(1);
+    expect(m.lastChanges()).toContainEqual({ kind: 'flag', name: 'CY', before: 0, after: 1 });
+    m.cpu.flags.CY = 0; // mutar el vivo no debe tocar el snapshot
+    m.cpu.pending.r55 = true;
+    m.back();
+    expect(m.cpu.flags.CY).toBe(0);
+    expect(m.cpu.pending.r55).toBe(false);
+  });
+});
+
+describe('Machine: casos límite', () => {
+  it('punto de corte en una línea DB → error', () => {
+    const m = load('NOP\nDB 3AH\nHLT');
+    expect(m.setBreakpoint(2)).toEqual({ ok: false, error: 'Esa línea no genera instrucciones' });
+    expect(m.setBreakpoint(3)).toEqual({ ok: true });
+  });
+
+  it('run(limit <= 0) → pause-limit sin ejecutar', () => {
+    const m = load('NOP\nHLT');
+    expect(m.run(0)).toEqual({ reason: 'pause-limit', steps: 0 });
+    expect(m.run(-5)).toEqual({ reason: 'pause-limit', steps: 0 });
+    expect(m.stepCount).toBe(0);
+    expect(m.cpu.PC).toBe(0);
   });
 });
