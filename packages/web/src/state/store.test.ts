@@ -1,0 +1,367 @@
+import { describe, expect, it } from 'vitest';
+import { assemble } from '@sim8085/core';
+import { createSession, SAMPLE } from './store';
+
+const LOOP = 'LP: JMP LP\n';
+const EQU_PROGRAM = 'N EQU 5\nMVI A,N\nHLT\n';
+
+function fresh() {
+  return createSession();
+}
+
+describe('SAMPLE', () => {
+  it('ensambla bien en 2000h con 8 bytes', () => {
+    expect(SAMPLE.name).toBe('ej1-complemento.asm');
+    expect(SAMPLE.memory).toEqual([[0x40, 0x3a]]);
+    const asm = assemble(SAMPLE.text, { start: 0x2000 });
+    expect(asm.ok).toBe(true);
+    expect(asm.sizeBytes).toBe(8);
+    expect(SAMPLE.text).toContain('A ← M[0040h], traigo el dato');
+  });
+});
+
+describe('estado inicial', () => {
+  it('arranca con el archivo de ejemplo, 2000h y 0040h = 3Ah', () => {
+    const s = fresh().getState();
+    expect(s.files).toHaveLength(1);
+    expect(s.files[0]!.name).toBe(SAMPLE.name);
+    expect(s.files[0]!.text).toBe(SAMPLE.text);
+    expect(s.activeId).toBe(s.files[0]!.id);
+    expect(s.startAddress).toBe(0x2000);
+    expect(s.userMemory.get(0x40)).toBe(0x3a);
+    expect(s.asm).toBeNull();
+    expect(s.machine).toBeNull();
+    expect(s.base).toBe('hex');
+    expect(s.pausePrompt).toBe(false);
+  });
+
+  it('cada createSession es independiente', () => {
+    const a = fresh();
+    const b = fresh();
+    a.getState().newFile();
+    expect(a.getState().files).toHaveLength(2);
+    expect(b.getState().files).toHaveLength(1);
+  });
+});
+
+describe('assembleActive', () => {
+  it('con el ejemplo crea la máquina y las métricas', () => {
+    const st = fresh();
+    st.getState().assembleActive();
+    const s = st.getState();
+    expect(s.asm?.ok).toBe(true);
+    expect(s.machine).not.toBeNull();
+    expect(s.metrics?.sizeBytes).toBe(8);
+    expect(s.stale).toBe(false);
+    expect(s.status).toEqual({
+      kind: 'info',
+      text: 'Ensamblado correcto · 4 instrucciones · 8 bytes desde 2000h',
+    });
+  });
+
+  it('runBatch(100000) llega a HLT con el complemento en 0041h', () => {
+    const st = fresh();
+    st.getState().assembleActive();
+    expect(st.getState().runBatch(100000)).toBe('halt');
+    const s = st.getState();
+    expect(s.machine!.memory[0x41]).toBe(0xc5);
+    expect(s.status).toEqual({ kind: 'info', text: 'Detenido (HLT)' });
+    expect(s.metrics?.executed).toBe(4);
+    expect(s.pausePrompt).toBe(false);
+  });
+
+  it('error de sintaxis: sin máquina y status con la primera línea con error', () => {
+    const st = fresh();
+    const id = st.getState().activeId;
+    st.getState().setText(id, 'MVI A,1\nFOO B\nBAR\n');
+    st.getState().assembleActive();
+    const s = st.getState();
+    expect(s.asm?.ok).toBe(false);
+    expect(s.machine).toBeNull();
+    expect(s.stale).toBe(false);
+    const first = s.asm!.messages.find((m) => m.severity === 'error')!;
+    expect(first.line).toBe(2);
+    expect(s.status).toEqual({ kind: 'error', text: `Línea 2: ${first.message}` });
+  });
+
+  it('Review Focus 1: re-ensamblar re-aplica memoria del alumno, PC al inicio, salidas vacías, prevMetrics', () => {
+    const st = fresh();
+    const id = st.getState().activeId;
+    st.getState().setText(id, 'LDA 0040H\nOUT 01H\nHLT\n');
+    st.getState().assembleActive();
+    st.getState().runBatch(100000);
+    expect(st.getState().machine!.outputs).toHaveLength(1);
+    const finalMetrics = st.getState().metrics;
+    st.getState().step();
+    st.getState().setMemoryByte(0x40, '55');
+    st.getState().assembleActive();
+    const s = st.getState();
+    expect(s.machine!.memory[0x40]).toBe(0x55);
+    expect(s.machine!.cpu.PC).toBe(0x2000);
+    expect(s.machine!.outputs).toHaveLength(0);
+    expect(s.prevMetrics).toEqual(finalMetrics);
+    expect(s.prevMetrics?.executed).toBe(3);
+    expect(s.metrics?.executed).toBe(0);
+  });
+
+  it('re-aplica inputs y puntos de corte', () => {
+    const st = fresh();
+    const id = st.getState().activeId;
+    st.getState().setText(id, 'IN 05H\nSTA 0041H\nHLT\n');
+    st.getState().setInput(0x05, '7F');
+    st.getState().toggleBreakpoint(3);
+    st.getState().assembleActive();
+    expect(st.getState().runBatch(100000)).toBe('breakpoint');
+    expect(st.getState().status).toEqual({ kind: 'info', text: 'Punto de corte en la línea 3' });
+    expect(st.getState().machine!.memory[0x41]).toBe(0x7f);
+  });
+
+  it('quita los puntos de corte que el core rechaza y lo informa', () => {
+    const st = fresh();
+    const id = st.getState().activeId;
+    st.getState().toggleBreakpoint(1); // sin máquina: se guarda en silencio
+    st.getState().setText(id, EQU_PROGRAM);
+    st.getState().assembleActive();
+    const s = st.getState();
+    expect(s.breakpointLines.has(1)).toBe(false);
+    expect(s.status?.kind).toBe('info');
+    expect(s.status?.text).toContain('línea 1');
+  });
+
+  it('startAddress se pasa al ensamblador', () => {
+    const st = fresh();
+    st.getState().setStartAddress('3000');
+    st.getState().assembleActive();
+    expect(st.getState().asm!.start).toBe(0x3000);
+    expect(st.getState().machine!.cpu.PC).toBe(0x3000);
+  });
+});
+
+describe('ejecución', () => {
+  it('stepBack() tras step() vuelve el PC', () => {
+    const st = fresh();
+    st.getState().assembleActive();
+    const v0 = st.getState().version;
+    st.getState().step();
+    expect(st.getState().machine!.cpu.PC).toBe(0x2003);
+    expect(st.getState().version).toBeGreaterThan(v0);
+    st.getState().stepBack();
+    expect(st.getState().machine!.cpu.PC).toBe(0x2000);
+  });
+
+  it('reset() vuelve al inicio y sube version', () => {
+    const st = fresh();
+    st.getState().assembleActive();
+    st.getState().runBatch(100000);
+    const v = st.getState().version;
+    st.getState().reset();
+    expect(st.getState().machine!.cpu.PC).toBe(0x2000);
+    expect(st.getState().version).toBe(v + 1);
+    expect(st.getState().metrics?.executed).toBe(0);
+  });
+
+  it('bucle infinito: runBatch(100000) → pause-limit y pausePrompt', () => {
+    const st = fresh();
+    st.getState().setText(st.getState().activeId, LOOP);
+    st.getState().assembleActive();
+    expect(st.getState().runBatch(100000)).toBe('pause-limit');
+    expect(st.getState().pausePrompt).toBe(true);
+    st.getState().continueAfterPause();
+    expect(st.getState().pausePrompt).toBe(false);
+  });
+
+  it('tanda chica que agota la cuota → null y sin pausePrompt (sigue corriendo)', () => {
+    const st = fresh();
+    st.getState().setText(st.getState().activeId, LOOP);
+    st.getState().assembleActive();
+    expect(st.getState().runBatch(5000)).toBeNull();
+    expect(st.getState().pausePrompt).toBe(false);
+    expect(st.getState().metrics?.executed).toBe(5000);
+  });
+
+  it('stop() limpia pausePrompt y avisa', () => {
+    const st = fresh();
+    st.getState().setText(st.getState().activeId, LOOP);
+    st.getState().assembleActive();
+    st.getState().runBatch(100000);
+    st.getState().stop();
+    expect(st.getState().pausePrompt).toBe(false);
+    expect(st.getState().status).toEqual({ kind: 'info', text: 'Ejecución detenida' });
+  });
+
+  it('runBatch sin ensamblar o con texto cambiado → null y error', () => {
+    const st = fresh();
+    expect(st.getState().runBatch(100000)).toBeNull();
+    expect(st.getState().status).toEqual({ kind: 'error', text: 'Ensamblá primero (F5)' });
+    st.getState().assembleActive();
+    st.getState().setText(st.getState().activeId, 'HLT\n');
+    expect(st.getState().runBatch(100000)).toBeNull();
+    expect(st.getState().status?.kind).toBe('error');
+  });
+
+  it('opcode inválido → error con el texto del core', () => {
+    const st = fresh();
+    st.getState().setText(st.getState().activeId, 'DB 08H\n');
+    st.getState().assembleActive();
+    expect(st.getState().asm?.ok).toBe(true);
+    expect(st.getState().runBatch(100000)).toBe('error');
+    expect(st.getState().status?.kind).toBe('error');
+    expect(st.getState().status?.text).toMatch(/Opcode inválido/);
+  });
+
+  it('raise() marca la interrupción pendiente y sube version', () => {
+    const st = fresh();
+    st.getState().assembleActive();
+    const v = st.getState().version;
+    st.getState().raise('TRAP');
+    expect(st.getState().machine!.cpu.pending.trap).toBe(true);
+    expect(st.getState().version).toBe(v + 1);
+  });
+});
+
+describe('archivos', () => {
+  it('setText después de ensamblar → stale', () => {
+    const st = fresh();
+    st.getState().assembleActive();
+    st.getState().setText(st.getState().activeId, 'HLT\n');
+    expect(st.getState().stale).toBe(true);
+    expect(st.getState().files[0]!.text).toBe('HLT\n');
+  });
+
+  it('setText en un archivo no activo no marca stale', () => {
+    const st = fresh();
+    const first = st.getState().activeId;
+    st.getState().newFile();
+    st.getState().assembleActive();
+    st.getState().setText(first, 'NOP\n');
+    expect(st.getState().stale).toBe(false);
+  });
+
+  it('newFile numera sin-titulo-N.asm con el siguiente N libre y lo activa', () => {
+    const st = fresh();
+    st.getState().newFile();
+    st.getState().newFile();
+    const names = st.getState().files.map((f) => f.name);
+    expect(names).toEqual([SAMPLE.name, 'sin-titulo-1.asm', 'sin-titulo-2.asm']);
+    expect(st.getState().activeId).toBe(st.getState().files[2]!.id);
+    st.getState().closeFile(st.getState().files[1]!.id);
+    st.getState().newFile();
+    expect(st.getState().files.map((f) => f.name)).toContain('sin-titulo-1.asm');
+  });
+
+  it('closeFile del último deja un sin-titulo.asm vacío', () => {
+    const st = fresh();
+    st.getState().closeFile(st.getState().activeId);
+    const s = st.getState();
+    expect(s.files).toHaveLength(1);
+    expect(s.files[0]!.name).toBe('sin-titulo.asm');
+    expect(s.files[0]!.text).toBe('');
+    expect(s.activeId).toBe(s.files[0]!.id);
+  });
+
+  it('openFile agrega y activa; setActive limpia asm y máquina', () => {
+    const st = fresh();
+    st.getState().assembleActive();
+    st.getState().openFile('otro.asm', 'HLT\n');
+    const s = st.getState();
+    expect(s.files).toHaveLength(2);
+    expect(s.files[1]!.name).toBe('otro.asm');
+    expect(s.activeId).toBe(s.files[1]!.id);
+    expect(s.asm).toBeNull();
+    expect(s.machine).toBeNull();
+    expect(s.stale).toBe(false);
+    st.getState().assembleActive();
+    st.getState().setActive(s.files[0]!.id);
+    expect(st.getState().machine).toBeNull();
+    expect(st.getState().asm).toBeNull();
+  });
+});
+
+describe('validación (Review Focus 5)', () => {
+  it("setStartAddress('xyz') deja el valor anterior y pone error", () => {
+    const st = fresh();
+    st.getState().setStartAddress('xyz');
+    expect(st.getState().startAddress).toBe(0x2000);
+    expect(st.getState().status?.kind).toBe('error');
+  });
+
+  it("setMemoryByte(0x40,'1FF') deja el valor anterior y pone error", () => {
+    const st = fresh();
+    st.getState().setMemoryByte(0x40, '1FF');
+    expect(st.getState().userMemory.get(0x40)).toBe(0x3a);
+    expect(st.getState().status).toEqual({ kind: 'error', text: 'Dato fuera de rango (00h–FFh)' });
+  });
+
+  it('setMemoryByte válido con máquina escribe en la memoria y sube version', () => {
+    const st = fresh();
+    st.getState().assembleActive();
+    const v = st.getState().version;
+    st.getState().setMemoryByte(0x40, '0Fh');
+    expect(st.getState().userMemory.get(0x40)).toBe(0x0f);
+    expect(st.getState().machine!.memory[0x40]).toBe(0x0f);
+    expect(st.getState().version).toBe(v + 1);
+  });
+
+  it('setInput inválido deja el valor anterior; válido lo guarda', () => {
+    const st = fresh();
+    st.getState().setInput(1, 'zz');
+    expect(st.getState().inputs.has(1)).toBe(false);
+    expect(st.getState().status?.kind).toBe('error');
+    st.getState().setInput(1, '20');
+    expect(st.getState().inputs.get(1)).toBe(0x20);
+  });
+
+  it('clearUserMemory borra los datos del alumno en la sesión y en la máquina', () => {
+    const st = fresh();
+    st.getState().assembleActive();
+    st.getState().clearUserMemory();
+    expect(st.getState().userMemory.size).toBe(0);
+    expect(st.getState().machine!.memory[0x40]).toBe(0);
+  });
+});
+
+describe('puntos de corte', () => {
+  it('toggleBreakpoint en una línea EQU → error y sin cambios', () => {
+    const st = fresh();
+    st.getState().setText(st.getState().activeId, EQU_PROGRAM);
+    st.getState().assembleActive();
+    const before = st.getState().breakpointLines;
+    st.getState().toggleBreakpoint(1);
+    const s = st.getState();
+    expect(s.status).toEqual({ kind: 'error', text: 'Esa línea no genera instrucciones' });
+    expect(s.breakpointLines.size).toBe(0);
+    expect(s.breakpointLines).toBe(before);
+  });
+
+  it('toggleBreakpoint con máquina pone y quita', () => {
+    const st = fresh();
+    st.getState().assembleActive();
+    st.getState().toggleBreakpoint(2);
+    expect(st.getState().breakpointLines.has(2)).toBe(true);
+    st.getState().toggleBreakpoint(2);
+    expect(st.getState().breakpointLines.has(2)).toBe(false);
+    expect(st.getState().runBatch(100000)).toBe('halt');
+  });
+
+  it('toggleBreakpoint sin máquina alterna en silencio', () => {
+    const st = fresh();
+    st.getState().toggleBreakpoint(7);
+    expect(st.getState().breakpointLines.has(7)).toBe(true);
+    expect(st.getState().status).toBeNull();
+    st.getState().toggleBreakpoint(7);
+    expect(st.getState().breakpointLines.has(7)).toBe(false);
+  });
+});
+
+describe('setBase', () => {
+  it("setBase('bin') solo cambia la base", () => {
+    const st = fresh();
+    st.getState().assembleActive();
+    const { base: _b, setBase: _s, ...before } = st.getState();
+    st.getState().setBase('bin');
+    const { base, setBase: _s2, ...after } = st.getState();
+    expect(base).toBe('bin');
+    expect(after).toEqual(before);
+    expect(after.version).toBe(before.version);
+  });
+});
