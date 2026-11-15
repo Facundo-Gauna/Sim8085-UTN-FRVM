@@ -9,11 +9,12 @@ export interface SourceLine {
   raw: string;
 }
 
-const DIRECTIVES = ['ORG', 'EQU', 'DB', 'DW', 'DS', 'END', 'MACRO', 'ENDM'];
+/** Directivas del ensamblador (las comparte el resaltado del editor). */
+export const DIRECTIVES: readonly string[] = Object.freeze(['ORG', 'EQU', 'DB', 'DW', 'DS', 'END', 'MACRO', 'ENDM']);
 /** Nombres que el lexer reconoce como mnemónico o directiva. */
 const KNOWN = new Set<string>([...ISA.map((d) => d.mnemonic), ...DIRECTIVES]);
 /** Directivas que admiten un nombre sin `:` delante (`DATO EQU 40H`). */
-const NAMED_DIRECTIVES = new Set(['EQU', 'MACRO', 'DB', 'DW', 'DS']);
+export const NAMED_DIRECTIVES: ReadonlySet<string> = new Set(['EQU', 'MACRO', 'DB', 'DW', 'DS']);
 
 /** Parte `s` en el primer `;` fuera de comillas. */
 function splitComment(s: string): [string, string | undefined] {

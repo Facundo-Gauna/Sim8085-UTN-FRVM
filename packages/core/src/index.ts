@@ -8,7 +8,7 @@ export { assemble } from './asm/assembler';
 export type { AssembleResult, ListingRow, AsmMessage } from './asm/assembler';
 export { parseNumber } from './asm/numbers';
 export type { NumResult } from './asm/numbers';
-export { lexLine } from './asm/lexer';
+export { lexLine, DIRECTIVES, NAMED_DIRECTIVES } from './asm/lexer';
 export type { SourceLine } from './asm/lexer';
 
 export { initialState, packFlags, unpackFlags } from './cpu/state';
