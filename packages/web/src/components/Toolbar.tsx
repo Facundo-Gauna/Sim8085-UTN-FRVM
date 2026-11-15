@@ -3,7 +3,8 @@
  * Ejecutar/Detener, Paso, Atrás, Reiniciar y velocidad.
  *
  * Una sola acción primaria naranja (MASTER §2.2): Ensamblar mientras no hay un
- * ensamblado al día; Ejecutar (o Detener) cuando lo hay.
+ * ensamblado al día; Reiniciar con el programa detenido en HLT; si no,
+ * Ejecutar (o Detener mientras corre).
  */
 import { useEffect, useId, useState, type ChangeEvent, type KeyboardEvent, type RefObject } from 'react';
 import { Hammer, Play, RotateCcw, Square, StepBack, StepForward } from 'lucide-react';
@@ -93,7 +94,7 @@ export function Toolbar(p: ToolbarProps) {
   const canRun = live && !machine.cpu.halted;
   const canStep = live && !p.running;
   const canBack = canStep && machine.canBack;
-  const primaryRun = live;
+  const primary: 'assemble' | 'run' | 'reset' = !live ? 'assemble' : machine.cpu.halted && !p.running ? 'reset' : 'run';
 
   const onSpeed = (e: ChangeEvent<HTMLInputElement>) => p.onSpeed(Number(e.target.value) as Speed);
 
@@ -103,7 +104,7 @@ export function Toolbar(p: ToolbarProps) {
       <StartField />
       <button
         type="button"
-        className={`btn${primaryRun ? '' : ' primary'}`}
+        className={`btn${primary === 'assemble' ? ' primary' : ''}`}
         onClick={p.onAssemble}
         aria-keyshortcuts="F5"
         title="Ensamblar (F5)"
@@ -115,7 +116,7 @@ export function Toolbar(p: ToolbarProps) {
         <button
           ref={p.runRef}
           type="button"
-          className={`btn run${primaryRun ? ' primary' : ''}`}
+          className={`btn run${primary === 'run' ? ' primary' : ''}`}
           onClick={p.onToggleRun}
           disabled={!p.running && !canRun}
           aria-keyshortcuts="F8"
@@ -152,7 +153,7 @@ export function Toolbar(p: ToolbarProps) {
         </button>
         <button
           type="button"
-          className="btn icon"
+          className={`btn icon${primary === 'reset' ? ' primary' : ''}`}
           onClick={p.onReset}
           disabled={!live}
           aria-label="Reiniciar"

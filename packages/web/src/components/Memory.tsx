@@ -11,6 +11,11 @@
  * En el editor: Enter confirma, Escape o salir del campo cancelan.
  * El texto válido va a session.setMemoryByte; uno inválido muestra el error
  * (role="alert"), deja el valor viejo y el editor abierto.
+ *
+ * La ventana sigue al programa: al ensamblar arranca en `asm.entry` (o la
+ * dirección de inicio) y, en cada paso, si el PC sale de la vista, salta a la
+ * fila del PC. Deja de seguirlo en cuanto el alumno la mueve (Ir a, botones de
+ * fila, teclado), hasta el próximo ensamblado.
  */
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { fmt16, fmt8, parseAddress, parseByte } from '../lib/format';
@@ -32,6 +37,7 @@ export function Memory() {
   useSession((s) => s.version); // la Machine es mutable: re-dibujar en cada cambio
 
   const live = machine && !stale ? machine : null;
+  const startAddress = useSession((s) => s.startAddress);
 
   const rootRef = useRef<HTMLDivElement>(null);
   const [cols, setCols] = useState(8);
@@ -43,6 +49,9 @@ export function Memory() {
   const [draft, setDraft] = useState('');
   const [editError, setEditError] = useState<string | null>(null);
   const pendingFocus = useRef<number | null>(null);
+  /** El alumno movió la ventana: deja de seguir al programa hasta re-ensamblar. */
+  const userMoved = useRef(false);
+  const followed = useRef<typeof machine>(null);
   const gotoId = useId();
   const version = useSession((s) => s.version);
 
@@ -80,6 +89,21 @@ export function Memory() {
   const start = Math.min(view - (view % cols), maxStart);
   const clampView = (addr: number) => Math.max(0, Math.min(addr - (addr % cols), maxStart));
 
+  // Seguir al programa (antes de pintar, para no mostrar 0000h un instante).
+  useLayoutEffect(() => {
+    if (!live) return;
+    if (followed.current !== live) {
+      // Ensamblado nuevo: vuelve a seguir desde el inicio del programa.
+      followed.current = live;
+      userMoved.current = false;
+      setView(clampView(asm?.entry ?? startAddress));
+      return;
+    }
+    if (userMoved.current) return;
+    const pc = live.cpu.PC;
+    if (pc < start || pc >= start + ROWS * cols) setView(clampView(pc));
+  }, [live, version]);
+
   const applyGoto = () => {
     const p = parseAddress(gotoText);
     if (!p.ok) {
@@ -87,6 +111,7 @@ export function Memory() {
       return;
     }
     setGotoError(null);
+    userMoved.current = true;
     setView(clampView(p.value));
     setFocusAddr(p.value);
     pendingFocus.current = p.value;
@@ -94,13 +119,17 @@ export function Memory() {
 
   const moveTo = (addr: number) => {
     const a = Math.max(0, Math.min(MEM_SIZE - 1, addr));
+    userMoved.current = true;
     setFocusAddr(a);
     pendingFocus.current = a;
     if (a < start) setView(clampView(a));
     else if (a >= start + ROWS * cols) setView(clampView(a - (ROWS - 1) * cols));
   };
 
-  const shiftRows = (n: number) => setView(Math.max(0, Math.min(maxStart, start + n * cols)));
+  const shiftRows = (n: number) => {
+    userMoved.current = true;
+    setView(Math.max(0, Math.min(maxStart, start + n * cols)));
+  };
 
   const openEditor = (addr: number) => {
     if (!live) return;

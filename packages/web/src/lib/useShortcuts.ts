@@ -3,9 +3,8 @@
  *   F5 Ensamblar · F8 Ejecutar/Detener · F10 Paso · Shift+F10 Atrás
  *   Ctrl/Cmd+O Abrir · Ctrl/Cmd+S Descargar
  * F9 (punto de corte) lo maneja el editor: acá no se toca.
- * Las teclas F funcionan en cualquier lugar (también dentro del editor y de los
- * campos). Ctrl+O/S no se disparan dentro de campos de texto (<input>, <textarea>,
- * <select>); sí dentro del editor de código, donde "guardar la página" no sirve.
+ * Todos funcionan en cualquier lugar (editor, campos de texto) y siempre hacen
+ * preventDefault: Ctrl+S nunca abre el "Guardar página" del navegador.
  */
 import { useEffect, useRef } from 'react';
 
@@ -16,10 +15,6 @@ export interface ShortcutHandlers {
   back(): void;
   open(): void;
   save(): void;
-}
-
-function inTextField(t: EventTarget | null): boolean {
-  return t instanceof HTMLElement && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT');
 }
 
 export function useShortcuts(handlers: ShortcutHandlers): void {
@@ -34,7 +29,7 @@ export function useShortcuts(handlers: ShortcutHandlers): void {
       if (e.key === 'F5' && !mod && !e.altKey) run = h.assemble;
       else if (e.key === 'F8' && !mod && !e.altKey) run = h.toggleRun;
       else if (e.key === 'F10' && !mod && !e.altKey) run = e.shiftKey ? h.back : h.step;
-      else if (mod && !e.altKey && !e.shiftKey && !inTextField(e.target)) {
+      else if (mod && !e.altKey && !e.shiftKey) {
         const k = e.key.toLowerCase();
         if (k === 'o') run = h.open;
         else if (k === 's') run = h.save;

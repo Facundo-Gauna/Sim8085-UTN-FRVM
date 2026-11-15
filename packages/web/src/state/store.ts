@@ -299,7 +299,8 @@ export function createSession(): StoreApi<Session> {
         let status: Status | null = null;
         if (res.reason === 'halt') status = HALTED;
         else if (res.reason === 'error') status = { kind: 'error', source: 'run', text: res.info?.error ?? 'Error de ejecución' };
-        set({ metrics: computeMetrics(r.asm, r.machine), status, ...touch() });
+        // Un paso a mano cierra el aviso de pausa: el alumno ya decidió.
+        set({ metrics: computeMetrics(r.asm, r.machine), status, pausePrompt: false, ...touch() });
       },
 
       stepBack() {
@@ -310,10 +311,10 @@ export function createSession(): StoreApi<Session> {
         }
         lastBreakPc = null;
         if (!r.machine.back()) {
-          set({ status: { kind: 'info', text: 'No hay pasos para deshacer' } });
+          set({ status: { kind: 'info', text: 'No hay pasos para deshacer' }, pausePrompt: false });
           return;
         }
-        set({ metrics: computeMetrics(r.asm, r.machine), status: null, ...touch() });
+        set({ metrics: computeMetrics(r.asm, r.machine), status: null, pausePrompt: false, ...touch() });
       },
 
       reset() {

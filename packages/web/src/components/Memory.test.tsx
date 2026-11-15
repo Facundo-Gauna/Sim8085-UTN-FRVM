@@ -28,6 +28,7 @@ describe('Memory', () => {
   it('cabecera 03 MEMORIA y campo Ir a con id', () => {
     assembleSample();
     render(<Memory />);
+    goto('0000h');
     expect(screen.getByText('Memoria')).toBeTruthy();
     expect(screen.getByLabelText('Ir a').id).not.toBe('');
   });
@@ -35,6 +36,7 @@ describe('Memory', () => {
   it('Ir a 2000h muestra 3Ah 40h 00h y respeta la base', () => {
     assembleSample();
     render(<Memory />);
+    goto('0000h');
     goto('2000h');
     expect(rowCells('2000h').slice(0, 3)).toEqual(['3Ah', '40h', '00h']);
     act(() => s().setBase('dec'));
@@ -46,6 +48,7 @@ describe('Memory', () => {
   it('la celda del PC tiene aria-current', () => {
     assembleSample();
     render(<Memory />);
+    goto('0000h');
     goto('2000h');
     expect(gridcell(/^2000h: 3Ah/).getAttribute('aria-current')).toBe('true');
     expect(gridcell(/^2001h: 40h/).getAttribute('aria-current')).toBeNull();
@@ -54,6 +57,7 @@ describe('Memory', () => {
   it('editar 0040h con 55 actualiza la celda y userMemory', () => {
     assembleSample();
     render(<Memory />);
+    goto('0000h');
     fireEvent.doubleClick(gridcell(/^0040h: 3Ah/));
     const input = screen.getByLabelText(/Valor de 0040h/) as HTMLInputElement;
     expect(input.value).toBe('3A');
@@ -68,6 +72,7 @@ describe('Memory', () => {
   it('valor inválido 1FF deja el valor, muestra alerta y mantiene el editor', () => {
     assembleSample();
     render(<Memory />);
+    goto('0000h');
     fireEvent.doubleClick(gridcell(/^0040h: 3Ah/));
     const input = screen.getByLabelText(/Valor de 0040h/);
     fireEvent.change(input, { target: { value: '1FF' } });
@@ -85,6 +90,7 @@ describe('Memory', () => {
     act(() => s().step());
     expect(s().machine!.canBack).toBe(true);
     render(<Memory />);
+    goto('0000h');
     fireEvent.doubleClick(gridcell(/^0040h/));
     const input = screen.getByLabelText(/Valor de 0040h/);
     fireEvent.change(input, { target: { value: '01' } });
@@ -102,6 +108,7 @@ describe('Memory', () => {
     // lastChanges() describe solo el último paso: se detiene en STA, antes de HLT.
     for (let i = 0; i < 3; i++) act(() => s().step());
     render(<Memory />);
+    goto('0000h');
     const c = gridcell(/^0041h: C5h \(cambió desde 00h\)$/);
     expect(c.classList.contains('changed')).toBe(true);
     expect(c.textContent).toContain('•');
@@ -110,6 +117,7 @@ describe('Memory', () => {
   it('teclado: ArrowRight mueve el foco, Enter abre editor, Escape cancela', () => {
     assembleSample();
     render(<Memory />);
+    goto('0000h');
     const c0 = gridcell(/^0040h/);
     act(() => c0.focus());
     fireEvent.keyDown(c0, { key: 'ArrowRight' });
@@ -126,6 +134,7 @@ describe('Memory', () => {
   it('un solo tab stop entre las celdas', () => {
     assembleSample();
     render(<Memory />);
+    goto('0000h');
     const stops = screen.getAllByRole('gridcell').filter((c) => c.tabIndex === 0);
     expect(stops).toHaveLength(1);
   });
@@ -133,6 +142,7 @@ describe('Memory', () => {
   it('Ir a xyz muestra error y conserva la vista y el texto', () => {
     assembleSample();
     render(<Memory />);
+    goto('0000h');
     goto('2000h');
     const input = goto('xyz');
     expect(screen.getByRole('alert').textContent).toContain('hexadecimal');
@@ -143,6 +153,7 @@ describe('Memory', () => {
   it('botones de fila anterior y siguiente', () => {
     assembleSample();
     render(<Memory />);
+    goto('0000h');
     goto('2000h');
     fireEvent.click(screen.getByRole('button', { name: 'Fila siguiente' }));
     expect(screen.queryByRole('rowheader', { name: '2000h' })).toBeNull();
@@ -154,6 +165,7 @@ describe('Memory', () => {
   it('Borrar datos cargados vacía userMemory', () => {
     assembleSample();
     render(<Memory />);
+    goto('0000h');
     fireEvent.click(screen.getByRole('button', { name: 'Borrar datos cargados' }));
     expect(s().userMemory.size).toBe(0);
     expect(gridcell(/^0040h: 00h/)).toBeTruthy();
@@ -161,6 +173,7 @@ describe('Memory', () => {
 
   it('sin máquina muestra el estado vacío sin lanzar', () => {
     render(<Memory />);
+    goto('0000h');
     expect(screen.getByText('Ensamblá para ver la memoria')).toBeTruthy();
     expect(screen.queryAllByRole('gridcell')).toHaveLength(0);
   });
@@ -168,6 +181,7 @@ describe('Memory', () => {
   it('el editor abierto se cierra al dar un paso', () => {
     assembleSample();
     render(<Memory />);
+    goto('0000h');
     fireEvent.doubleClick(gridcell(/^0040h/));
     expect(screen.getByLabelText(/Valor de 0040h/)).toBeTruthy();
     act(() => s().step());
@@ -177,10 +191,12 @@ describe('Memory', () => {
   it('el editor se cierra al re-ensamblar y no reaparece con el borrador viejo', () => {
     assembleSample();
     render(<Memory />);
+    goto('0000h');
     fireEvent.doubleClick(gridcell(/^0040h/));
     fireEvent.change(screen.getByLabelText(/Valor de 0040h/), { target: { value: '77' } });
     act(() => s().assembleActive());
     expect(screen.queryByLabelText(/Valor de 0040h/)).toBeNull();
+    goto('0000h');
     fireEvent.doubleClick(gridcell(/^0040h/));
     expect((screen.getByLabelText(/Valor de 0040h/) as HTMLInputElement).value).toBe('3A');
   });
@@ -188,6 +204,7 @@ describe('Memory', () => {
   it('el editor se cierra cuando el código queda desactualizado', () => {
     assembleSample();
     render(<Memory />);
+    goto('0000h');
     fireEvent.doubleClick(gridcell(/^0040h/));
     act(() => s().setText(s().activeId, 'NOP'));
     expect(screen.queryByLabelText(/Valor de 0040h/)).toBeNull();
@@ -197,6 +214,7 @@ describe('Memory', () => {
   it('Ir a con dirección no alineada enfoca esa celda', () => {
     assembleSample();
     render(<Memory />);
+    goto('0000h');
     goto('2003h');
     const c = gridcell(/^2003h/);
     expect(document.activeElement).toBe(c);
@@ -206,6 +224,7 @@ describe('Memory', () => {
   it('doble clic dentro del editor no reinicia el borrador', () => {
     assembleSample();
     render(<Memory />);
+    goto('0000h');
     fireEvent.doubleClick(gridcell(/^0040h/));
     const input = screen.getByLabelText(/Valor de 0040h/) as HTMLInputElement;
     fireEvent.change(input, { target: { value: '12' } });
@@ -216,11 +235,13 @@ describe('Memory', () => {
   it('en dec y bin el editor muestra el sufijo h', () => {
     assembleSample();
     render(<Memory />);
+    goto('0000h');
     fireEvent.doubleClick(gridcell(/^0040h/));
     expect(document.querySelector('.cell-hint')).toBeNull();
     cleanup();
     act(() => s().setBase('dec'));
     render(<Memory />);
+    goto('0000h');
     fireEvent.doubleClick(gridcell(/^64: 58/));
     expect(document.querySelector('.cell-hint')?.textContent).toBe('h');
     expect(screen.getByLabelText(/en hexadecimal/)).toBeTruthy();
@@ -229,6 +250,7 @@ describe('Memory', () => {
   it('las celdas cargadas por el alumno lo dicen en el aria-label', () => {
     assembleSample();
     render(<Memory />);
+    goto('0000h');
     expect(gridcell(/^0040h: 3Ah \(cargado por vos\)$/).getAttribute('title')).toBe('Dato cargado por vos');
     expect(gridcell(/^0041h: 00h$/)).toBeTruthy();
   });
@@ -248,6 +270,7 @@ describe('Memory', () => {
     );
     assembleSample();
     render(<Memory />);
+    goto('0000h');
     expect(screen.getByRole('rowheader', { name: '0008h' })).toBeTruthy();
     act(() => cb([{ contentRect: { width: 600 } } as ResizeObserverEntry], {} as ResizeObserver));
     expect(screen.queryByRole('rowheader', { name: '0008h' })).toBeNull();
@@ -258,6 +281,7 @@ describe('Memory', () => {
   it('fin de memoria: ArrowRight en FFFFh se queda y Fila siguiente se deshabilita', () => {
     assembleSample();
     render(<Memory />);
+    goto('0000h');
     goto('FFFFh');
     const c = gridcell(/^FFFFh/);
     expect(document.activeElement).toBe(c);
@@ -270,6 +294,7 @@ describe('Memory', () => {
   it('F2 abre el editor', () => {
     assembleSample();
     render(<Memory />);
+    goto('0000h');
     const c = gridcell(/^0040h/);
     act(() => c.focus());
     fireEvent.keyDown(c, { key: 'F2' });
@@ -279,11 +304,49 @@ describe('Memory', () => {
   it('ArrowDown en la última fila desplaza la ventana', () => {
     assembleSample();
     render(<Memory />);
+    goto('0000h');
     goto('0078h');
     const c = gridcell(/^0078h/);
     expect(document.activeElement).toBe(c);
     fireEvent.keyDown(c, { key: 'ArrowDown' });
     expect(screen.queryByRole('rowheader', { name: '0000h' })).toBeNull();
     expect(document.activeElement).toBe(gridcell(/^0080h/));
+  });
+
+  it('al ensamblar la ventana arranca en el inicio del programa, no en 0000h', () => {
+    assembleSample();
+    render(<Memory />);
+    expect(screen.getAllByRole('rowheader')[0]!.textContent).toBe('2000h');
+    expect(screen.queryByRole('rowheader', { name: '0000h' })).toBeNull();
+  });
+
+  it('si el alumno movió la ventana, un paso no la mueve; re-ensamblar vuelve al inicio', () => {
+    assembleSample();
+    render(<Memory />);
+    goto('0040h');
+    act(() => s().step());
+    expect(screen.getAllByRole('rowheader')[0]!.textContent).toBe('0040h');
+    act(() => s().assembleActive());
+    expect(screen.getAllByRole('rowheader')[0]!.textContent).toBe('2000h');
+  });
+
+  it('sin mover la ventana, un paso que saca al PC de la vista la lleva a la fila del PC', () => {
+    // JMP lejos: el PC sale de la ventana de 2000h.
+    act(() => s().setText(s().activeId, 'JMP 3000H\nORG 3000H\nNOP\nHLT\n'));
+    assembleSample();
+    render(<Memory />);
+    expect(screen.getAllByRole('rowheader')[0]!.textContent).toBe('2000h');
+    act(() => s().step());
+    expect(s().machine!.cpu.PC).toBe(0x3000);
+    expect(screen.getAllByRole('rowheader')[0]!.textContent).toBe('3000h');
+  });
+
+  it('los botones de fila también cuentan como mover la ventana', () => {
+    act(() => s().setText(s().activeId, 'JMP 3000H\nORG 3000H\nNOP\nHLT\n'));
+    assembleSample();
+    render(<Memory />);
+    fireEvent.click(screen.getByRole('button', { name: 'Fila siguiente' }));
+    act(() => s().step());
+    expect(screen.getAllByRole('rowheader')[0]!.textContent).toBe('2008h');
   });
 });

@@ -236,14 +236,72 @@ describe('App: barra de herramientas y atajos', () => {
     expect(s().status?.kind).toBe('error');
   });
 
-  it('las teclas sueltas no se disparan dentro de un campo, F5 sí', () => {
+  it('dentro de un campo, Ctrl+S descarga con preventDefault y F5 ensambla', () => {
     const files = fakeFiles();
     render(<App fileService={files} />);
     const input = screen.getByLabelText('Inicio');
-    act(() => void fireEvent.keyDown(input, { key: 's', ctrlKey: true }));
-    expect(files.saveFile).not.toHaveBeenCalled();
+    const ev = new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true, cancelable: true });
+    act(() => void input.dispatchEvent(ev));
+    expect(ev.defaultPrevented).toBe(true);
+    expect(files.saveFile).toHaveBeenCalledTimes(1);
     act(() => void fireEvent.keyDown(input, { key: 'F5' }));
     expect(s().machine).not.toBeNull();
+  });
+
+  it('una sola acción primaria: Ensamblar sin ensamblar, Ejecutar listo, Reiniciar en HLT', () => {
+    render(<App />);
+    const primaries = () => [...document.querySelectorAll('.toolbar .btn.primary')].map((b) => b.textContent || b.getAttribute('aria-label'));
+    expect(primaries()).toEqual(['Ensamblar']);
+    key('F5');
+    expect(primaries()).toEqual(['Ejecutar']);
+    for (let i = 0; i < 4; i++) key('F10');
+    expect(s().machine!.cpu.halted).toBe(true);
+    expect(primaries()).toEqual(['Reiniciar']);
+    act(() => s().setText(s().activeId, 'NOP\n'));
+    expect(primaries()).toEqual(['Ensamblar']);
+  });
+
+  it('el área de trabajo es el landmark main', () => {
+    render(<App />);
+    const main = screen.getByRole('main');
+    expect(within(main).getByRole('region', { name: 'Editor' })).toBeTruthy();
+    expect(within(main).getByRole('region', { name: 'Memoria' })).toBeTruthy();
+  });
+
+  it('con el aviso de pausa: F8 lo cierra y vuelve a correr; F10 también lo cierra', () => {
+    vi.useFakeTimers();
+    render(<App />);
+    act(() => s().setText(s().activeId, 'LP: JMP LP\n'));
+    fireEvent.change(screen.getByLabelText('Velocidad'), { target: { value: '5' } });
+    key('F5');
+    key('F8');
+    for (let i = 0; i < 40 && !s().pausePrompt; i++) act(() => void vi.advanceTimersByTime(16));
+    expect(screen.getByRole('alertdialog')).toBeTruthy();
+    key('F8');
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(screen.getByRole('button', { name: /^Detener/ })).toBeTruthy();
+    for (let i = 0; i < 40 && !s().pausePrompt; i++) act(() => void vi.advanceTimersByTime(16));
+    expect(screen.getByRole('alertdialog')).toBeTruthy();
+    key('F10');
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
+
+  it('Detener en el aviso detiene de verdad la ejecución', () => {
+    vi.useFakeTimers();
+    render(<App />);
+    act(() => s().setText(s().activeId, 'LP: JMP LP\n'));
+    fireEvent.change(screen.getByLabelText('Velocidad'), { target: { value: '5' } });
+    key('F5');
+    key('F8');
+    for (let i = 0; i < 40 && !s().pausePrompt; i++) act(() => void vi.advanceTimersByTime(16));
+    // El aviso sigue a la vista mientras algo vuelve a poner la ejecución en marcha.
+    act(() => fireEvent.click(screen.getByRole('button', { name: /^Ejecutar/ })));
+    act(() => s().promptPause());
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Detener' }));
+    const n = s().machine!.stepCount;
+    act(() => void vi.advanceTimersByTime(500));
+    expect(s().machine!.stepCount).toBe(n);
+    expect(screen.getByRole('button', { name: /^Ejecutar/ })).toBeTruthy();
   });
 
   it('Ctrl+S descarga el archivo activo y Ctrl+O abre archivos', async () => {
@@ -284,7 +342,7 @@ describe('App: pestañas de archivo', () => {
   it('cerrar una pestaña modificada pide confirmación en la página; Escape cancela y Cerrar cierra', () => {
     render(<App />);
     act(() => s().setText(s().activeId, 'MVI A,1\nHLT\n'));
-    fireEvent.click(screen.getByRole('button', { name: 'Cerrar ej1-complemento.asm' }));
+    fireEvent.click(screen.getByTitle('Cerrar ej1-complemento.asm'));
     const dlg = screen.getByRole('alertdialog');
     expect(dlg.textContent).toMatch(/¿Cerrar «ej1-complemento\.asm»\? Los cambios no se guardan\./);
     expect(document.activeElement).toBe(within(dlg).getByRole('button', { name: 'Cancelar' }));
@@ -293,7 +351,7 @@ describe('App: pestañas de archivo', () => {
     expect(s().files).toHaveLength(1);
     expect(s().files[0]!.name).toBe('ej1-complemento.asm');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Cerrar ej1-complemento.asm' }));
+    fireEvent.click(screen.getByTitle('Cerrar ej1-complemento.asm'));
     fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Cerrar' }));
     expect(screen.queryByRole('alertdialog')).toBeNull();
     // Cerrar el último deja un archivo vacío.
@@ -302,10 +360,39 @@ describe('App: pestañas de archivo', () => {
     expect(s().files[0]!.text).toBe('');
   });
 
+  it('marcado ARIA: el tablist solo expone pestañas; el modificado se lee como texto', () => {
+    render(<App />);
+    act(() => s().setText(s().activeId, 'MVI A,1\nHLT\n'));
+    const list = screen.getByRole('tablist', { name: 'Archivos abiertos' });
+    expect(within(list).queryAllByRole('button')).toHaveLength(0);
+    const x = screen.getByTitle('Cerrar ej1-complemento.asm');
+    expect(x.getAttribute('aria-hidden')).toBe('true');
+    expect(x.tabIndex).toBe(-1);
+    const tab = within(list).getByRole('tab');
+    expect(tab.textContent).toBe('ej1-complemento.asm• (modificado)');
+    expect(tab.querySelector('.sr-only')?.textContent).toBe(' (modificado)');
+    expect(tab.querySelector('[aria-hidden="true"]')?.textContent).toBe('•');
+    expect(tab.querySelector('[aria-label]')).toBeNull();
+  });
+
+  it('después de Descargar, cerrar no pregunta', async () => {
+    const files = fakeFiles();
+    render(<App fileService={files} />);
+    act(() => s().setText(s().activeId, 'MVI A,1\nHLT\n'));
+    fireEvent.click(screen.getByRole('button', { name: 'Descargar' }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(fileTabs()[0]!.textContent).toBe('ej1-complemento.asm');
+    fireEvent.click(screen.getByTitle('Cerrar ej1-complemento.asm'));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(s().files[0]!.name).toBe('sin-titulo.asm');
+  });
+
   it('cerrar sin cambios no pregunta', () => {
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'Archivo nuevo' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Cerrar sin-titulo-1.asm' }));
+    fireEvent.click(screen.getByTitle('Cerrar sin-titulo-1.asm'));
     expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(s().files).toHaveLength(1);
   });

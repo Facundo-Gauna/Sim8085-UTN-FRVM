@@ -8,7 +8,7 @@
  * recuerda acá, sin tocar el store) y no está vacío. Cerrar un archivo
  * modificado pide confirmación dentro de la página, nunca con confirm().
  */
-import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useLayoutEffect, useReducer, useRef, useState, type KeyboardEvent } from 'react';
 import { Download, FolderOpen, Plus, X } from 'lucide-react';
 import { defaultSession, useSession, type FileTab } from '../state/store';
 import type { FileService } from '../services/fileService';
@@ -20,10 +20,23 @@ export function openFromDisk(service: FileService): void {
   });
 }
 
+/**
+ * Texto de referencia de cada archivo (id → texto al abrirlo, crearlo o
+ * descargarlo). Vive en el módulo porque Ctrl+S descarga sin pasar por las
+ * pestañas; las pestañas se suscriben para re-dibujar el "modificado".
+ */
+const baselines = new Map<string, string>();
+const listeners = new Set<() => void>();
+
 export function downloadActive(service: FileService): void {
   const s = defaultSession.getState();
   const file = s.files.find((f) => f.id === s.activeId);
-  if (file) void service.saveFile(file.name, file.text);
+  if (!file) return;
+  void service.saveFile(file.name, file.text).then(() => {
+    // Recién descargado: cerrar ya no pierde nada.
+    baselines.set(file.id, file.text);
+    for (const l of listeners) l();
+  });
 }
 
 export function FileTabs({ fileService }: { fileService: FileService }) {
@@ -33,7 +46,7 @@ export function FileTabs({ fileService }: { fileService: FileService }) {
   const newFile = useSession((s) => s.newFile);
   const closeFile = useSession((s) => s.closeFile);
 
-  const baseline = useRef(new Map<string, string>());
+  const [, rerender] = useReducer((n: number) => n + 1, 0);
   const [focusId, setFocusId] = useState(activeId);
   const [confirm, setConfirm] = useState<FileTab | null>(null);
   const tabRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -41,10 +54,17 @@ export function FileTabs({ fileService }: { fileService: FileService }) {
   const safeRef = useRef<HTMLButtonElement>(null);
   const dangerRef = useRef<HTMLButtonElement>(null);
 
+  // Al montar, la referencia arranca de cero (los ids son de esta sesión).
+  useEffect(() => {
+    baselines.clear();
+    listeners.add(rerender);
+    return () => void listeners.delete(rerender);
+  }, []);
+
   useEffect(() => {
     const ids = new Set(files.map((f) => f.id));
-    for (const f of files) if (!baseline.current.has(f.id)) baseline.current.set(f.id, f.text);
-    for (const id of [...baseline.current.keys()]) if (!ids.has(id)) baseline.current.delete(id);
+    for (const f of files) if (!baselines.has(f.id)) baselines.set(f.id, f.text);
+    for (const id of [...baselines.keys()]) if (!ids.has(id)) baselines.delete(id);
   }, [files]);
 
   // La pestaña enfocable sigue a la activa cuando esta cambia (nuevo, abrir, cerrar).
@@ -60,7 +80,7 @@ export function FileTabs({ fileService }: { fileService: FileService }) {
     if (confirm) safeRef.current?.focus();
   }, [confirm]);
 
-  const modified = (f: FileTab) => f.text.trim() !== '' && f.text !== (baseline.current.get(f.id) ?? f.text);
+  const modified = (f: FileTab) => f.text.trim() !== '' && f.text !== (baselines.get(f.id) ?? f.text);
 
   const doClose = (id: string) => {
     closeFile(id);
@@ -138,15 +158,19 @@ export function FileTabs({ fileService }: { fileService: FileService }) {
               >
                 {f.name}
                 {dirty && (
-                  <span className="tab-dirty" aria-label="modificado">
-                    •
-                  </span>
+                  <>
+                    <span className="tab-dirty" aria-hidden="true">
+                      •
+                    </span>
+                    <span className="sr-only"> (modificado)</span>
+                  </>
                 )}
               </button>
               <button
                 type="button"
                 className="tab-x"
                 tabIndex={-1}
+                aria-hidden="true"
                 aria-label={`Cerrar ${f.name}`}
                 title={`Cerrar ${f.name}`}
                 onClick={() => requestClose(f)}

@@ -180,6 +180,18 @@ describe('ejecución', () => {
     expect(st.getState().pausePrompt).toBe(true);
   });
 
+  it('step y stepBack cierran el aviso de pausa', () => {
+    const st = fresh();
+    st.getState().setText(st.getState().activeId, LOOP);
+    st.getState().assembleActive();
+    st.getState().promptPause();
+    st.getState().step();
+    expect(st.getState().pausePrompt).toBe(false);
+    st.getState().promptPause();
+    st.getState().stepBack();
+    expect(st.getState().pausePrompt).toBe(false);
+  });
+
   it('tanda chica que agota la cuota → null y sin pausePrompt (sigue corriendo)', () => {
     const st = fresh();
     st.getState().setText(st.getState().activeId, LOOP);

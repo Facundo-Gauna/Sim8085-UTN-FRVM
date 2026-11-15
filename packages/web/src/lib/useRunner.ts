@@ -101,6 +101,8 @@ export function useRunner(speed: Speed = 3): { running: boolean; start(): void; 
       s.runBatch(1); // no ejecuta nada: deja el aviso "Ensamblá primero (F5)"
       return;
     }
+    // Volver a correr es la respuesta al aviso de pausa: se cierra.
+    if (s.pausePrompt) s.continueAfterPause();
     runningRef.current = true;
     machineRef.current = s.machine;
     executedRef.current = 0;

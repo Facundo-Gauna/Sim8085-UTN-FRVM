@@ -82,6 +82,8 @@ function Simulator({ fileService }: { fileService: FileService }) {
       session().continueAfterPause();
       runner.start();
     } else {
+      // Primero el runner (si alguien la volvió a poner en marcha), después el store.
+      runner.stop();
       session().stop();
     }
   };
@@ -113,7 +115,7 @@ function Simulator({ fileService }: { fileService: FileService }) {
         />
         <Notice />
         {pausePrompt && <PauseBanner onContinue={() => afterPause(true)} onStop={() => afterPause(false)} />}
-        <div className="work">
+        <main className="work">
           <div className="left">
             <section className="panel editor-panel" aria-label="Editor">
               <header className="panel-h">
@@ -158,7 +160,7 @@ function Simulator({ fileService }: { fileService: FileService }) {
             <Flags />
             <Memory />
           </div>
-        </div>
+        </main>
         <Drawer initialCollapsed />
         <StatusBar />
       </div>
