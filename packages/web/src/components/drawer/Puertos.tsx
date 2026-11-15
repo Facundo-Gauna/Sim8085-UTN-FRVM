@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { fmt8, parseByte, parsePort } from '../../lib/format';
 import { useSession } from '../../state/store';
 
@@ -10,6 +10,23 @@ export function Puertos() {
   const [port, setPort] = useState('');
   const [value, setValue] = useState('');
   const [error, setError] = useState('');
+  const portRef = useRef<HTMLInputElement>(null);
+  const removeBtns = useRef(new Map<number, HTMLButtonElement>());
+  /** Puerto cuyo botón recibe el foco tras quitar una fila (null = el campo Puerto). */
+  const focusAfter = useRef<{ port: number | null } | null>(null);
+
+  useEffect(() => {
+    const f = focusAfter.current;
+    if (!f) return;
+    focusAfter.current = null;
+    (f.port === null ? portRef.current : removeBtns.current.get(f.port))?.focus();
+  }, [inputs]);
+
+  const remove = (p: number) => {
+    const order = [...inputs.keys()].sort((a, b) => a - b);
+    focusAfter.current = { port: order[order.indexOf(p) + 1] ?? null };
+    removeInput(p);
+  };
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -46,7 +63,15 @@ export function Puertos() {
                 <th scope="row">{fmt8(p, 'hex')}</th>
                 <td>{fmt8(v, base)}</td>
                 <td>
-                  <button type="button" aria-label={`Quitar puerto ${fmt8(p, 'hex')}`} onClick={() => removeInput(p)}>
+                  <button
+                    type="button"
+                    ref={(el) => {
+                      if (el) removeBtns.current.set(p, el);
+                      else removeBtns.current.delete(p);
+                    }}
+                    aria-label={`Quitar puerto ${fmt8(p, 'hex')}`}
+                    onClick={() => remove(p)}
+                  >
                     Quitar
                   </button>
                 </td>
@@ -58,11 +83,20 @@ export function Puertos() {
       <form className="add" onSubmit={submit} noValidate>
         <label className="field">
           Puerto
-          <input className="in" value={port} onChange={(e) => setPort(e.target.value)} spellCheck={false} />
+          <input
+            className="in"
+            ref={portRef}
+            aria-label="Puerto en hexadecimal"
+            placeholder="05h"
+            value={port} onChange={(e) => setPort(e.target.value)} spellCheck={false} />
         </label>
         <label className="field">
           Valor
-          <input className="in" value={value} onChange={(e) => setValue(e.target.value)} spellCheck={false} />
+          <input
+            className="in"
+            aria-label="Valor en hexadecimal"
+            placeholder="7Fh"
+            value={value} onChange={(e) => setValue(e.target.value)} spellCheck={false} />
         </label>
         <button type="submit">Agregar</button>
       </form>

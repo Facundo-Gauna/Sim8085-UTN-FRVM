@@ -30,7 +30,8 @@ const BODY: Record<TabId, () => JSX.Element> = {
 interface Seen {
   outs: number;
   halted: boolean;
-  asm: unknown;
+  /** Mensajes de error del último ensamblado, unidos (para detectar un conjunto nuevo). */
+  errKey: string;
   status: unknown;
 }
 
@@ -47,6 +48,11 @@ export function Drawer() {
   const status = useSession((s) => s.status);
   const version = useSession((s) => s.version);
 
+  const errKey = (asm?.messages ?? [])
+    .filter((m) => m.severity === 'error')
+    .map((m) => `${m.line}:${m.message}`)
+    .join('\n');
+
   const live = machine && !stale ? machine : null;
   const outs = live?.outputs.length ?? 0;
   const halted = live?.cpu.halted ?? false;
@@ -54,21 +60,24 @@ export function Drawer() {
   // La Machine es mutable: `version` re-dispara el efecto en cada cambio.
   useEffect(() => {
     const prev = seen.current;
-    seen.current = { outs, halted, asm, status };
+    seen.current = { outs, halted, errKey, status };
     if (!prev) return;
-    const hasAsmError = !!asm && asm !== prev.asm && asm.messages.some((m) => m.severity === 'error');
+    // Solo cuatro novedades abren el cajón: un OUT, el HLT, un conjunto nuevo de
+    // errores del ensamblador y un error de ejecución. Los demás errores ya se
+    // muestran en línea o en la barra de estado.
     const news =
       outs > prev.outs ||
       (halted && !prev.halted) ||
-      hasAsmError ||
-      (status !== prev.status && status?.kind === 'error');
+      (errKey !== '' && errKey !== prev.errKey) ||
+      (status !== prev.status && status?.kind === 'error' && status.source === 'run');
     if (!news) return;
     setCollapsed(false);
     if (tab !== 'salida') setDots((d) => (d.has('salida') ? d : new Set(d).add('salida')));
-  }, [version, outs, halted, asm, status, tab]);
+  }, [version, outs, halted, errKey, status, tab]);
 
   const select = (id: TabId) => {
     setTab(id);
+    setCollapsed(false);
     setDots((d) => {
       if (!d.has(id)) return d;
       const n = new Set(d);
@@ -95,7 +104,7 @@ export function Drawer() {
   return (
     <section className={`drawer${collapsed ? ' collapsed' : ''}`} aria-label="Cajón inferior">
       <div className="drawer-bar">
-        <div className="drawer-tabs" role="tablist" aria-label="Cajón inferior">
+        <div className="drawer-tabs" role="tablist" aria-label="Paneles del cajón">
           {TABS.map((t, i) => (
             <button
               key={t.id}

@@ -13,6 +13,7 @@ export function Pila() {
   const live = machine && !stale ? machine : null;
   if (!live) return <p className="t">Ensamblá para ver la pila</p>;
   const sp = live.cpu.SP;
+  // SP = 0 es el valor de reset: se toma como "pila sin usar" (aproximación).
   if (sp === 0) {
     return (
       <p className="t">

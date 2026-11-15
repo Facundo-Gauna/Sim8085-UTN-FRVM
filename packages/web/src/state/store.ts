@@ -32,6 +32,8 @@ export interface FileTab {
 export interface Status {
   kind: 'info' | 'error';
   text: string;
+  /** Origen del mensaje: la UI solo reacciona a los errores de 'run' y 'assemble'. */
+  source?: 'run' | 'assemble' | 'input';
 }
 
 export interface Session {
@@ -246,6 +248,7 @@ export function createSession(): StoreApi<Session> {
             prevMetrics,
             status: {
               kind: 'error',
+              source: 'assemble',
               text: err ? `Línea ${err.line}: ${err.message}` : 'El programa tiene errores',
             },
             ...touch(),
@@ -293,7 +296,7 @@ export function createSession(): StoreApi<Session> {
         const res = r.machine.step();
         let status: Status | null = null;
         if (res.reason === 'halt') status = HALTED;
-        else if (res.reason === 'error') status = { kind: 'error', text: res.info?.error ?? 'Error de ejecución' };
+        else if (res.reason === 'error') status = { kind: 'error', source: 'run', text: res.info?.error ?? 'Error de ejecución' };
         set({ metrics: computeMetrics(r.asm, r.machine), status, ...touch() });
       },
 
@@ -369,7 +372,7 @@ export function createSession(): StoreApi<Session> {
           case 'error':
             set({
               metrics,
-              status: { kind: 'error', text: res.info?.error ?? 'Error de ejecución' },
+              status: { kind: 'error', source: 'run', text: res.info?.error ?? 'Error de ejecución' },
               ...touch(),
             });
             return 'error';
@@ -414,7 +417,7 @@ export function createSession(): StoreApi<Session> {
       setMemoryByte(addr, valueText) {
         const p = parseByte(valueText);
         if (!p.ok) {
-          set({ status: { kind: 'error', text: p.error } });
+          set({ status: { kind: 'error', source: 'input', text: p.error } });
           return;
         }
         const a = addr & 0xffff;
@@ -448,12 +451,12 @@ export function createSession(): StoreApi<Session> {
       setInput(port, valueText) {
         // El puerto llega como número (la UI lo parsea con parsePort); acá solo se acota.
         if (!Number.isInteger(port) || port < 0 || port > 0xff) {
-          set({ status: { kind: 'error', text: 'Puerto fuera de rango (00h–FFh)' } });
+          set({ status: { kind: 'error', source: 'input', text: 'Puerto fuera de rango (00h–FFh)' } });
           return;
         }
         const p = parseByte(valueText);
         if (!p.ok) {
-          set({ status: { kind: 'error', text: p.error } });
+          set({ status: { kind: 'error', source: 'input', text: p.error } });
           return;
         }
         const inputs = new Map(get().inputs).set(port, p.value);

@@ -81,7 +81,7 @@ describe('assembleActive', () => {
     expect(s.stale).toBe(false);
     const first = s.asm!.messages.find((m) => m.severity === 'error')!;
     expect(first.line).toBe(2);
-    expect(s.status).toEqual({ kind: 'error', text: `Línea 2: ${first.message}` });
+    expect(s.status).toEqual({ kind: 'error', source: 'assemble', text: `Línea 2: ${first.message}` });
   });
 
   it('Review Focus 1: re-ensamblar re-aplica memoria del alumno, PC al inicio, salidas vacías, prevMetrics', () => {
@@ -289,7 +289,7 @@ describe('validación (Review Focus 5)', () => {
     const st = fresh();
     st.getState().setMemoryByte(0x40, '1FF');
     expect(st.getState().userMemory.get(0x40)).toBe(0x3a);
-    expect(st.getState().status).toEqual({ kind: 'error', text: 'Dato fuera de rango (00h–FFh)' });
+    expect(st.getState().status).toEqual({ kind: 'error', source: 'input', text: 'Dato fuera de rango (00h–FFh)' });
   });
 
   it('setMemoryByte válido con máquina escribe en la memoria y sube version', () => {
@@ -311,6 +311,15 @@ describe('validación (Review Focus 5)', () => {
     expect(st.getState().inputs.get(1)).toBe(0x20);
   });
 
+  it('el status de error de ensamblado trae source "assemble"; el de entrada de datos "input"', () => {
+    const st = fresh();
+    st.getState().setText(st.getState().activeId, 'MVI A, A1H\n');
+    st.getState().assembleActive();
+    expect(st.getState().status?.source).toBe('assemble');
+    st.getState().setInput(1, 'zz');
+    expect(st.getState().status?.source).toBe('input');
+  });
+
   it('removeInput quita el puerto de la sesión y de la máquina', () => {
     const st = fresh();
     st.getState().assembleActive();
@@ -320,6 +329,10 @@ describe('validación (Review Focus 5)', () => {
     expect(st.getState().inputs.has(5)).toBe(false);
     expect(st.getState().machine!.inputs.has(5)).toBe(false);
     st.getState().removeInput(9); // inexistente: no falla
+    const v = st.getState().version;
+    st.getState().setInput(6, '01');
+    st.getState().removeInput(6);
+    expect(st.getState().version).toBe(v + 2);
   });
 
   it('clearUserMemory borra los datos del alumno en la sesión y en la máquina', () => {

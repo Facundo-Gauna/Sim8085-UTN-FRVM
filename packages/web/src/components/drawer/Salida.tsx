@@ -24,7 +24,9 @@ export function Salida() {
   }, [outputs.length]);
 
   const sim: { kind: 'info' | 'error'; text: string }[] = [];
-  if (status) sim.push(status);
+  // El error de ensamblado ya figura en la lista del ensamblador: no se repite.
+  const listed = messages.some((m) => `Línea ${m.line}: ${m.message}` === status?.text);
+  if (status && !listed) sim.push(status);
   if (halted && status?.text !== 'Detenido (HLT)') sim.push({ kind: 'info', text: 'Detenido (HLT)' });
   if (pausePrompt) {
     sim.push({ kind: 'info', text: 'Se alcanzó el límite de instrucciones sin detenerse: puede ser un bucle infinito' });

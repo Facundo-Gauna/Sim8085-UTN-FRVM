@@ -24,11 +24,24 @@ export function Metricas() {
   const metrics = useSession((s) => s.metrics);
   const prev = useSession((s) => s.prevMetrics);
   const stale = useSession((s) => s.stale);
+  const machine = useSession((s) => s.machine);
   useSession((s) => s.version);
 
   if (!metrics) return <p className="t">Ensamblá para ver las métricas</p>;
   const d = prev ? diffMetrics(prev, metrics) : null;
-  const vs = ' vs. el ensamblado anterior';
+  const vs = ' vs. versión anterior';
+  // La comparación de ejecución solo vale si la anterior corrió y la actual terminó.
+  const finished = !!machine && !stale && machine.cpu.halted;
+  const execDiff = d && prev!.executed > 0 && finished ? d : null;
+  const execNote = !d
+    ? null
+    : prev!.executed === 0
+      ? 'sin ejecución previa'
+      : finished
+        ? null
+        : metrics.executed === 0
+          ? 'sin ejecutar todavía'
+          : 'ejecutando… la comparación aparece al terminar';
   return (
     <>
       {stale && <p className="t">El código cambió: estas métricas son del último ensamblado.</p>}
@@ -42,12 +55,14 @@ export function Metricas() {
         <div className="metric">
           <span className="caps">Instrucciones ejecutadas</span>
           <b>{metrics.executed}</b>
-          {d && <small className="diff">{signed(d.executed, 'instrucción', 'instrucciones') + vs}</small>}
+          {execDiff && <small className="diff">{signed(execDiff.executed, 'instrucción', 'instrucciones') + vs}</small>}
+          {execNote && <small>{execNote}</small>}
         </div>
         <div className="metric">
           <span className="caps">Estados T</span>
           <b>{metrics.tStates}</b>
-          {d && <small className="diff">{signed(d.tStates, 'estado T', 'estados T') + vs}</small>}
+          {execDiff && <small className="diff">{signed(execDiff.tStates, 'estado T', 'estados T') + vs}</small>}
+          {execNote && <small>{execNote}</small>}
         </div>
         <div className="metric">
           <span className="caps">Registros usados</span>

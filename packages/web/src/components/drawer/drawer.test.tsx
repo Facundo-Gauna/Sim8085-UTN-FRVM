@@ -138,8 +138,8 @@ describe('Pila', () => {
 
 describe('Puertos E/S', () => {
   const add = (port: string, value: string) => {
-    fireEvent.change(screen.getByLabelText('Puerto'), { target: { value: port } });
-    fireEvent.change(screen.getByLabelText('Valor'), { target: { value } });
+    fireEvent.change(screen.getByLabelText('Puerto en hexadecimal'), { target: { value: port } });
+    fireEvent.change(screen.getByLabelText('Valor en hexadecimal'), { target: { value } });
     fireEvent.click(screen.getByRole('button', { name: 'Agregar' }));
   };
 
@@ -230,7 +230,7 @@ describe('Métricas', () => {
     expect(screen.queryByText(/vs\. el ensamblado anterior/)).toBeNull();
   });
 
-  it('dos versiones: −1 byte y diferencia de estados T con signo y palabras', () => {
+  it('ambas versiones corridas hasta HLT: diferencias con signo y palabras', () => {
     load('NOP\nHLT\n');
     run();
     load('HLT\n');
@@ -240,5 +240,181 @@ describe('Métricas', () => {
     expect(screen.getByText(/−1 byte\b/)).toBeTruthy();
     expect(screen.getByText(/−4 estados T/)).toBeTruthy();
     expect(screen.getByText(/−1 instrucción\b/)).toBeTruthy();
+    expect(screen.getAllByText(/vs\. versión anterior/).length).toBeGreaterThan(0);
+  });
+
+  it('crece: +2 instrucciones y +8 estados T', () => {
+    load('HLT\n');
+    run();
+    load('NOP\nNOP\nHLT\n');
+    run();
+    render(<Drawer />);
+    pick(/^Métricas/);
+    expect(screen.getByText(/\+2 instrucciones/)).toBeTruthy();
+    expect(screen.getByText(/\+8 estados T/)).toBeTruthy();
+    expect(screen.getByText(/\+2 bytes/)).toBeTruthy();
+  });
+
+  it('versión anterior nunca corrida: solo bytes y "sin ejecución previa"', () => {
+    load('NOP\nHLT\n');
+    load('HLT\n');
+    run();
+    render(<Drawer />);
+    pick(/^Métricas/);
+    expect(screen.getByText(/−1 byte\b/)).toBeTruthy();
+    expect(screen.getAllByText('sin ejecución previa').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/estados T vs/)).toBeNull();
+    expect(screen.queryByText(/instrucciones? vs/)).toBeNull();
+  });
+
+  it('corrida actual a medias: oculta las diferencias de ejecución pero no la de bytes', () => {
+    load('HLT\n');
+    run();
+    load('NOP\nNOP\nHLT\n');
+    act(() => s().step());
+    render(<Drawer />);
+    pick(/^Métricas/);
+    expect(screen.getByText(/\+2 bytes/)).toBeTruthy();
+    expect(screen.getAllByText(/ejecutando… la comparación aparece al terminar/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/estados T vs/)).toBeNull();
+  });
+});
+
+describe('Drawer: auto-apertura acotada', () => {
+  const collapse = () => fireEvent.click(screen.getByRole('button', { name: 'Plegar cajón' }));
+  const expanded = () =>
+    screen.getByRole('button', { name: /cajón$/ }).getAttribute('aria-expanded') === 'true';
+
+  it('byte de memoria inválido no abre ni marca', () => {
+    load('HLT\n');
+    render(<Drawer />);
+    pick(/^Pila/);
+    collapse();
+    act(() => s().setMemoryByte(0x40, 'zz'));
+    expect(s().status?.kind).toBe('error');
+    expect(expanded()).toBe(false);
+    expect(tab(/^Salida/).textContent).not.toMatch(/novedades/);
+  });
+
+  it('"Ensamblá primero" no abre ni marca', () => {
+    render(<Drawer />);
+    pick(/^Pila/);
+    collapse();
+    act(() => s().step());
+    expect(s().status?.text).toMatch(/Ensamblá primero/);
+    expect(expanded()).toBe(false);
+    expect(tab(/^Salida/).textContent).not.toMatch(/novedades/);
+  });
+
+  it('error del ensamblador abre y marca; el mismo error al reensamblar no reaparece', () => {
+    render(<Drawer />);
+    pick(/^Pila/);
+    collapse();
+    load('MVI A, A1H\n');
+    expect(expanded()).toBe(true);
+    expect(tab(/^Salida/).textContent).toMatch(/novedades/);
+    pick(/^Salida/);
+    pick(/^Pila/);
+    collapse();
+    act(() => s().assembleActive());
+    expect(expanded()).toBe(false);
+    expect(tab(/^Salida/).textContent).not.toMatch(/novedades/);
+  });
+
+  it('HLT marca Salida', () => {
+    load('HLT\n');
+    render(<Drawer />);
+    pick(/^Pila/);
+    run();
+    expect(tab(/^Salida/).textContent).toMatch(/novedades/);
+  });
+
+  it('elegir una pestaña con el cajón plegado lo despliega (clic y teclado)', () => {
+    render(<Drawer />);
+    collapse();
+    pick(/^Pila/);
+    expect(expanded()).toBe(true);
+    expect(screen.getByRole('tabpanel').hasAttribute('hidden')).toBe(false);
+    collapse();
+    fireEvent.keyDown(tab(/^Pila/), { key: 'ArrowRight' });
+    expect(expanded()).toBe(true);
+    expect(tab(/^Puertos/).getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('Home y End en el tablist', () => {
+    render(<Drawer />);
+    fireEvent.keyDown(tab(/^Salida/), { key: 'End' });
+    expect(tab(/^Métricas/).getAttribute('aria-selected')).toBe('true');
+    fireEvent.keyDown(tab(/^Métricas/), { key: 'Home' });
+    expect(tab(/^Salida/).getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('el tablist tiene un nombre distinto al de la sección', () => {
+    render(<Drawer />);
+    expect(screen.getByRole('tablist', { name: 'Paneles del cajón' })).toBeTruthy();
+  });
+});
+
+describe('Salida: sin duplicados', () => {
+  it('el error de ensamblado no se repite bajo Simulador', () => {
+    load('MVI A, A1H\n');
+    render(<Drawer />);
+    expect(screen.getAllByText(/Línea 1: error/)).toHaveLength(1);
+  });
+});
+
+describe('Pila: vuelta de 16 bits', () => {
+  it.each([
+    ['0001H', ['FFFFh', '0000h', '0001h']],
+    ['0FFFFH', ['FFFDh', 'FFFFh', '0000h', '0004h']],
+  ])('SP=%s muestra direcciones envueltas', (sp, addrs) => {
+    load(`LXI SP,${sp}\nHLT\n`);
+    run();
+    render(<Drawer />);
+    pick(/^Pila/);
+    const text = screen.getByRole('table').textContent!;
+    expect(text).not.toMatch(/undefined|NaN/);
+    for (const a of addrs) expect(text).toContain(a);
+    expect(screen.getAllByRole('row')).toHaveLength(9);
+  });
+});
+
+describe('Interrupciones: cada botón', () => {
+  it.each([
+    ['TRAP', 'TRAP'],
+    ['RST 7.5', 'RST7.5'],
+    ['RST 6.5', 'RST6.5'],
+    ['RST 5.5', 'RST5.5'],
+  ])('%s llama raise(%s)', (label, irq) => {
+    load('NOP\nHLT\n');
+    const calls: string[] = [];
+    const orig = s().raise;
+    defaultSession.setState({ raise: (i) => { calls.push(i); orig(i); } });
+    render(<Drawer />);
+    pick(/^Interrupciones/);
+    fireEvent.click(screen.getByRole('button', { name: `Generar ${label}` }));
+    expect(calls).toEqual([irq]);
+  });
+});
+
+describe('Puertos: foco y ayuda', () => {
+  it('tras Quitar el foco pasa al siguiente Quitar o al campo Puerto', () => {
+    render(<Drawer />);
+    pick(/^Puertos/);
+    for (const p of ['01', '02']) {
+      fireEvent.change(screen.getByLabelText('Puerto en hexadecimal'), { target: { value: p } });
+      fireEvent.change(screen.getByLabelText('Valor en hexadecimal'), { target: { value: '10' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Agregar' }));
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Quitar puerto 01h' }));
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Quitar puerto 02h' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Quitar puerto 02h' }));
+    expect(document.activeElement).toBe(screen.getByLabelText('Puerto en hexadecimal'));
+  });
+
+  it('los campos indican hexadecimal', () => {
+    render(<Drawer />);
+    pick(/^Puertos/);
+    expect(screen.getByLabelText('Puerto en hexadecimal').getAttribute('placeholder')).toBe('05h');
   });
 });
