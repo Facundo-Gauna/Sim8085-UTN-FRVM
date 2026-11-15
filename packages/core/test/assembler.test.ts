@@ -1,0 +1,214 @@
+import { describe, it, expect } from 'vitest';
+import { assemble, type AssembleResult } from '../src/asm/assembler';
+
+/** Bytes de memoria desde `from`, `n` posiciones (undefined si no se escribió). */
+function bytesAt(r: AssembleResult, from: number, n: number): Array<number | undefined> {
+  return Array.from({ length: n }, (_, i) => r.memory.get(from + i));
+}
+
+const errors = (r: AssembleResult) => r.messages.filter((m) => m.severity === 'error');
+
+describe('assemble: programa básico', () => {
+  const src = [
+    'LDA 0040H ; A ← M[0040h]',
+    'CMA',
+    'STA 0041H',
+    'HLT',
+  ].join('\n');
+
+  it('GTP05 ej. 1 en 2000h', () => {
+    const r = assemble(src, { start: 0x2000 });
+    expect(r.ok).toBe(true);
+    expect(r.messages).toEqual([]);
+    expect(bytesAt(r, 0x2000, 8)).toEqual([0x3a, 0x40, 0x00, 0x2f, 0x32, 0x41, 0x00, 0x76]);
+    expect(r.sizeBytes).toBe(8);
+    expect(r.start).toBe(0x2000);
+    expect(r.end).toBe(0x2007);
+    expect(r.rows).toHaveLength(4);
+    expect(r.rows[0]).toMatchObject({
+      line: 1, address: 0x2000, bytes: [0x3a, 0x40, 0x00], source: 'LDA 0040H',
+      comment: 'A ← M[0040h]', inCatedra: true,
+    });
+    expect(r.rows[0]!.instr?.mnemonic).toBe('LDA');
+    expect(r.rows[1]!.comment).toBeUndefined();
+    expect(r.lineToAddress.get(3)).toBe(0x2004);
+    expect(r.addressToLine.get(0x2007)).toBe(4);
+  });
+
+  it('sin ORG ni start empieza en 0000h', () => {
+    const r = assemble('NOP');
+    expect(r.start).toBe(0);
+    expect(r.memory.get(0)).toBe(0x00);
+  });
+
+  it('ORG gana sobre start', () => {
+    const r = assemble('ORG 3000H\nHLT', { start: 0x2000 });
+    expect(r.memory.get(0x3000)).toBe(0x76);
+    expect(r.memory.has(0x2000)).toBe(false);
+    expect(r.start).toBe(0x3000);
+  });
+
+  it('referencia hacia adelante', () => {
+    const r = assemble('ORG 2000H\nJMP FIN\nNOP\nFIN: HLT');
+    expect(r.ok).toBe(true);
+    expect(bytesAt(r, 0x2000, 5)).toEqual([0xc3, 0x04, 0x20, 0x00, 0x76]);
+    expect(r.symbols.get('FIN')).toBe(0x2004);
+  });
+
+  it('operandos de registros, pares, PSW, puertos y RST', () => {
+    const r = assemble([
+      'MOV A, M', 'MVI B, 05H', 'LXI SP, 2100H', 'PUSH PSW', 'POP B',
+      'IN 01H', 'OUT 02H', 'RST 7', 'LDAX D', 'DAD SP',
+    ].join('\n'));
+    expect(r.ok).toBe(true);
+    expect([...r.memory.values()]).toEqual([
+      0x7e, 0x06, 0x05, 0x31, 0x00, 0x21, 0xf5, 0xc1, 0xdb, 0x01, 0xd3, 0x02, 0xff, 0x1a, 0x39,
+    ]);
+    expect(r.rows[1]!.source).toBe('MVI B, 05H');
+  });
+});
+
+describe('assemble: directivas', () => {
+  it('EQU', () => {
+    const r = assemble('DATO EQU 0040H\nLDA DATO');
+    expect(r.ok).toBe(true);
+    expect(bytesAt(r, 0, 3)).toEqual([0x3a, 0x40, 0x00]);
+    expect(r.symbols.get('DATO')).toBe(0x40);
+    expect(r.rows).toHaveLength(1);
+    expect(r.rows[0]!.line).toBe(2);
+  });
+
+  it('DB, DW y DS', () => {
+    const r = assemble("ORG 1000H\nDB 05H, 'AB', 12\nDW 1234H\nDS 3\nHLT");
+    expect(r.ok).toBe(true);
+    expect(bytesAt(r, 0x1000, 6)).toEqual([0x05, 0x41, 0x42, 0x0c, 0x34, 0x12]);
+    expect(bytesAt(r, 0x1006, 3)).toEqual([undefined, undefined, undefined]);
+    expect(r.memory.get(0x1009)).toBe(0x76);
+    expect(r.rows.map((x) => x.address)).toEqual([0x1000, 0x1004, 0x1009]);
+    expect(r.rows[0]!.inCatedra).toBe(false);
+  });
+
+  it('DB con nombre sin dos puntos', () => {
+    const r = assemble('ORG 0050H\nTABLA DB 1, 2\nLXI H, TABLA');
+    expect(r.ok).toBe(true);
+    expect(r.symbols.get('TABLA')).toBe(0x50);
+    expect(bytesAt(r, 0x52, 3)).toEqual([0x21, 0x50, 0x00]);
+  });
+
+  it('END ignora lo que sigue', () => {
+    const r = assemble('HLT\nEND\nFOO BAR\nNOP');
+    expect(r.ok).toBe(true);
+    expect(r.memory.size).toBe(1);
+  });
+});
+
+describe('assemble: macros', () => {
+  const src = [
+    'SUMA2 MACRO X',
+    ' ADI X',
+    ' ADI X',
+    ' ENDM',
+    'SUMA2 01H ; suma dos veces',
+    'HLT',
+  ].join('\n');
+
+  it('expande con sustitución de parámetros', () => {
+    const r = assemble(src);
+    expect(r.ok).toBe(true);
+    expect(bytesAt(r, 0, 5)).toEqual([0xc6, 0x01, 0xc6, 0x01, 0x76]);
+    expect(r.rows).toHaveLength(3);
+    expect(r.rows[0]).toMatchObject({
+      line: 5, source: 'ADI 01H', fromMacro: 'SUMA2', inCatedra: false, comment: 'suma dos veces',
+    });
+    expect(r.rows[1]).toMatchObject({ line: 5, source: 'ADI 01H', fromMacro: 'SUMA2', inCatedra: false });
+    expect(r.rows[1]!.comment).toBeUndefined();
+    expect(r.rows[2]).toMatchObject({ line: 6, inCatedra: true });
+    expect(r.rows[2]!.fromMacro).toBeUndefined();
+    expect(r.lineToAddress.get(5)).toBe(0);
+  });
+
+  it('sustitución sólo de palabra completa', () => {
+    const r = assemble('M1 MACRO X\nMVI A, X\nMVI B, XX\nENDM\nXX EQU 7\nM1 3');
+    expect(r.ok).toBe(true);
+    expect(bytesAt(r, 0, 4)).toEqual([0x3e, 0x03, 0x06, 0x07]);
+  });
+
+  it('macro anidada y recursión son errores', () => {
+    const a = assemble('M1 MACRO\nM2 MACRO\nENDM\nENDM');
+    expect(errors(a)[0]!.message).toContain('Las macros no se pueden anidar');
+    const b = assemble('M1 MACRO\nM1\nENDM\nM1');
+    expect(errors(b)[0]!.message).toContain('recursión de macro');
+    expect(errors(b)[0]!.line).toBe(4);
+  });
+
+  it('cantidad de parámetros incorrecta', () => {
+    const r = assemble('M1 MACRO X\nADI X\nENDM\nM1');
+    expect(r.ok).toBe(false);
+    expect(errors(r)[0]!.line).toBe(4);
+  });
+});
+
+describe('assemble: errores y advertencias', () => {
+  it('mnemónico desconocido', () => {
+    const r = assemble('NOP\nFOO B');
+    expect(r.ok).toBe(false);
+    expect(errors(r)[0]).toMatchObject({ line: 2, severity: 'error' });
+    expect(errors(r)[0]!.message).toContain('FOO');
+  });
+
+  it('MVI A sin dato', () => {
+    const r = assemble('MVI A');
+    expect(errors(r)[0]).toMatchObject({ line: 1, message: 'MVI necesita un registro y un dato de 8 bits' });
+  });
+
+  it('MVI A, 300 fuera de rango de 8 bits', () => {
+    const r = assemble('NOP\nMVI A, 300');
+    const e = errors(r)[0]!;
+    expect(e.line).toBe(2);
+    expect(e.message).toContain('fuera de rango');
+    expect(e.message).toContain('8 bits');
+  });
+
+  it('etiqueta duplicada', () => {
+    const r = assemble('X: NOP\nX: HLT');
+    expect(errors(r)[0]!.line).toBe(2);
+    expect(errors(r)[0]!.message).toContain('X');
+  });
+
+  it('hexadecimal sin 0 adelante', () => {
+    const r = assemble('MVI A, A1H');
+    expect(errors(r)[0]).toMatchObject({
+      line: 1,
+      message: '¿Quisiste decir 0A1H? Un número hexadecimal que empieza con letra lleva un 0 adelante.',
+    });
+    const r2 = assemble('MVI A, FFH');
+    expect(errors(r2)[0]!.message).toContain('0FFH');
+  });
+
+  it('símbolo definido con forma de hexa no da la pista', () => {
+    const r = assemble('A1H EQU 5\nMVI A, A1H');
+    expect(r.ok).toBe(true);
+    expect(r.memory.get(1)).toBe(5);
+  });
+
+  it('símbolo no definido', () => {
+    const r = assemble('JMP NADA');
+    expect(errors(r)[0]!.message).toContain('NADA');
+    expect(errors(r)[0]!.message).toContain('no está definido');
+  });
+
+  it('bytes superpuestos', () => {
+    const r = assemble('ORG 2000H\nLXI H, 0\nNOP\nORG 2003H\nNOP');
+    expect(r.ok).toBe(false);
+    expect(errors(r)[0]).toMatchObject({ line: 5 });
+    expect(errors(r)[0]!.message).toContain('se superpone en 2003h');
+  });
+
+  it('comentario de más de 80 caracteres', () => {
+    const r = assemble(`NOP ; ${'x'.repeat(81)}\nHLT ; ${'y'.repeat(80)}`);
+    expect(r.ok).toBe(true);
+    expect(r.messages).toEqual([
+      { line: 1, severity: 'warning', message: 'La observación supera los 80 caracteres' },
+    ]);
+  });
+});
