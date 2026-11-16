@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AArrowDown, AArrowUp } from 'lucide-react';
 import { Editor } from './editor/Editor';
 import { Announcer } from './components/Announcer';
+import { ExportDialog } from './components/export/ExportDialog';
 import { Drawer } from './components/drawer/Drawer';
 import { downloadActive, openFromDisk } from './components/FileTabs';
 import { Flags } from './components/Flags';
@@ -45,6 +46,8 @@ function Simulator({ fileService }: { fileService: FileService }) {
   const runner = useRunner(speed);
   const [fontSize, setFontSize] = useFontSize();
   const runRef = useRef<HTMLButtonElement>(null);
+  const exportRef = useRef<HTMLButtonElement>(null);
+  const [exporting, setExporting] = useState(false);
 
   // beforeunload: avisa mientras haya archivos con contenido (lee siempre los últimos).
   const filesRef = useRef(files);
@@ -97,6 +100,13 @@ function Simulator({ fileService }: { fileService: FileService }) {
     hadPause.current = pausePrompt;
   }, [pausePrompt]);
 
+  // Al cerrar el diálogo de exportación el foco vuelve al botón que lo abrió.
+  const wasExporting = useRef(false);
+  useEffect(() => {
+    if (wasExporting.current && !exporting) exportRef.current?.focus();
+    wasExporting.current = exporting;
+  }, [exporting]);
+
   return (
     <div className="app">
       <Rail />
@@ -112,6 +122,8 @@ function Simulator({ fileService }: { fileService: FileService }) {
           onSpeed={setSpeed}
           runRef={runRef}
           fileService={fileService}
+          onExport={() => setExporting(true)}
+          exportRef={exportRef}
         />
         <Notice />
         {pausePrompt && <PauseBanner onContinue={() => afterPause(true)} onStop={() => afterPause(false)} />}
@@ -164,6 +176,11 @@ function Simulator({ fileService }: { fileService: FileService }) {
         <Drawer initialCollapsed />
         <StatusBar />
       </div>
+      <ExportDialog
+        open={exporting}
+        onClose={() => setExporting(false)}
+        fileService={fileService}
+      />
       <Announcer />
     </div>
   );

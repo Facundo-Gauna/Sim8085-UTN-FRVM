@@ -7,7 +7,7 @@
  * Ejecutar (o Detener mientras corre).
  */
 import { useEffect, useId, useState, type ChangeEvent, type KeyboardEvent, type RefObject } from 'react';
-import { Hammer, Play, RotateCcw, Square, StepBack, StepForward, WandSparkles } from 'lucide-react';
+import { FileDown, Hammer, Play, RotateCcw, Square, StepBack, StepForward, WandSparkles } from 'lucide-react';
 import { fmt16, parseAddress } from '../lib/format';
 import { SPEED_TEXT, type Speed } from '../lib/useRunner';
 import { useSession } from '../state/store';
@@ -26,6 +26,8 @@ export interface ToolbarProps {
   onSpeed(s: Speed): void;
   runRef: RefObject<HTMLButtonElement>;
   fileService: FileService;
+  onExport(): void;
+  exportRef: RefObject<HTMLButtonElement>;
 }
 
 function StartField() {
@@ -187,6 +189,17 @@ export function Toolbar(p: ToolbarProps) {
         >
           <WandSparkles size={16} strokeWidth={1.75} aria-hidden="true" />
           Autocompletar observaciones
+        </button>
+        <button
+          ref={p.exportRef}
+          type="button"
+          className="btn"
+          onClick={p.onExport}
+          disabled={!live}
+          title={live ? 'Exportar las hojas de entrega a PDF' : 'Ensamblá primero (F5) para exportar a PDF'}
+        >
+          <FileDown size={16} strokeWidth={1.75} aria-hidden="true" />
+          Exportar PDF
         </button>
       </div>
     </header>

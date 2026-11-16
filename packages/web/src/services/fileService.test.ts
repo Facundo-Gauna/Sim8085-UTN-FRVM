@@ -117,3 +117,22 @@ describe('openFiles', () => {
     expect(webFileService.canPickFolder).toBe(false);
   });
 });
+
+describe('saveBinary', () => {
+  it('descarga los bytes con el nombre normalizado y revoca la URL', async () => {
+    vi.useFakeTimers();
+    URL.createObjectURL = vi.fn(() => 'blob:pdf');
+    URL.revokeObjectURL = vi.fn();
+    let download = '';
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      download = this.download;
+    });
+    const p = webFileService.saveBinary('ej 1/x.pdf', new Uint8Array([37, 80, 68, 70]), 'application/pdf');
+    await vi.runAllTimersAsync();
+    await p;
+    expect(download).toBe('x.pdf');
+    expect((URL.createObjectURL as ReturnType<typeof vi.fn>).mock.calls[0]![0].type).toBe('application/pdf');
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:pdf');
+    expect(document.querySelector('a[download]')).toBeNull();
+  });
+});

@@ -37,6 +37,7 @@ function fakeFiles(): FileService & { saved: [string, string][] } {
     saved,
     canPickFolder: false,
     openFiles: vi.fn(() => Promise.resolve([{ name: 'otro.asm', text: 'NOP\nHLT\n' }])),
+    saveBinary: vi.fn(() => Promise.resolve()),
     saveFile: vi.fn((name: string, text: string) => {
       saved.push([name, text]);
       return Promise.resolve();
@@ -412,5 +413,22 @@ describe('App: Autocompletar observaciones', () => {
     expect(screen.getByRole('contentinfo', { name: 'Barra de estado' }).textContent).toMatch(
       /Se completaron 3 observaciones/,
     );
+  });
+});
+
+describe('App: Exportar PDF', () => {
+  it('el botón está deshabilitado sin ensamblar; abre el diálogo y Escape devuelve el foco', () => {
+    render(<App fileService={fakeFiles()} />);
+    const btn = () => screen.getByRole('button', { name: /Exportar PDF/ }) as HTMLButtonElement;
+    expect(btn().disabled).toBe(true);
+    expect(btn().title).toMatch(/Ensamblá primero/);
+    key('F5');
+    expect(btn().disabled).toBe(false);
+    act(() => void fireEvent.click(btn()));
+    const dlg = screen.getByRole('dialog', { name: 'Exportar PDF' });
+    expect(dlg).toBeTruthy();
+    act(() => void fireEvent.keyDown(dlg, { key: 'Escape' }));
+    expect(screen.queryByRole('dialog', { name: 'Exportar PDF' })).toBeNull();
+    expect(document.activeElement).toBe(btn());
   });
 });

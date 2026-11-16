@@ -11,6 +11,7 @@
 import { createStore, useStore, type StoreApi } from 'zustand';
 import {
   assemble,
+  buildTrace,
   computeMetrics,
   describeInstruction,
   Machine,
@@ -18,6 +19,7 @@ import {
   type Irq,
   type Metrics,
   type StopReason,
+  type TraceResult,
 } from '@sim8085/core';
 import { fmt16, parseAddress, parseByte, type Base } from '../lib/format';
 import { SAMPLE } from './sample';
@@ -86,6 +88,8 @@ export interface Session {
   raise(irq: Irq): void;
   /** Escribe en el editor una observación en las líneas de instrucción sin comentario; devuelve cuántas completó. */
   autofillObservations(): number;
+  /** Traza de la hoja Registros-Banderas-Memoria (tope 500); null sin ensamblado al día. */
+  traceForExport(): TraceResult | null;
 }
 
 /** Tandas de este tamaño o más que llegan al límite preguntan si seguir. */
@@ -490,6 +494,15 @@ export function createSession(): StoreApi<Session> {
         }
         r.machine.inputs.delete(port);
         set({ inputs, ...touch() });
+      },
+
+      traceForExport() {
+        const { asm, stale, userMemory, inputs } = get();
+        if (!asm || !asm.ok || stale) return null;
+        return buildTrace(asm, (m) => {
+          for (const [addr, value] of userMemory) m.setMemory(addr, value);
+          for (const [port, value] of inputs) m.inputs.set(port, value);
+        });
       },
 
       autofillObservations() {

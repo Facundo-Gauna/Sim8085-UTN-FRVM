@@ -3,7 +3,7 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf
 import type { ListingRow, TraceRow } from '@sim8085/core';
 import {
   ROWS_PER_PAGE, fitText, layoutAssembler, layoutTrace, pdfSafe,
-  type Header,
+  type AsmLayout, type Header,
 } from './layout';
 
 export interface RenderResult {
@@ -71,12 +71,22 @@ function newDoc(h: Header) {
   });
 }
 
+/** Maqueta del Assembler con la métrica real de Helvetica: la usan el PDF y la vista previa. */
+export async function layoutAssemblerHelvetica(rows: ListingRow[]): Promise<AsmLayout> {
+  const doc = await PDFDocument.create();
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  return assemblerLayoutWith(rows, font);
+}
+
+function assemblerLayoutWith(rows: ListingRow[], font: PDFFont): AsmLayout {
+  const xs = cumulative(ASM_COLS);
+  return layoutAssembler(rows, (t) => font.widthOfTextAtSize(pdfSafe(t), FS), xs[4]! - xs[3]! - PAD * 2);
+}
+
 export async function renderAssemblerPdf(rows: ListingRow[], h: Header): Promise<RenderResult> {
   const { doc, font } = await newDoc(h);
-  const measure = (t: string) => font.widthOfTextAtSize(pdfSafe(t), FS);
   const xs = cumulative(ASM_COLS);
-  const obsWidth = xs[4]! - xs[3]! - PAD * 2;
-  const { pages, truncated } = layoutAssembler(rows, measure, obsWidth);
+  const { pages, truncated } = assemblerLayoutWith(rows, font);
   for (const p of pages) {
     const page = doc.addPage([PAGE_W, PAGE_H]);
     const c = { page, font };

@@ -633,3 +633,32 @@ describe('autofillObservations', () => {
     expect(lines[4]).toContain('; detiene el procesador');
   });
 });
+
+describe('traceForExport', () => {
+  it('el ejemplo: 4 filas con el dato del alumno cargado', () => {
+    const st = createSession();
+    st.getState().assembleActive();
+    const t = st.getState().traceForExport()!;
+    expect(t.truncated).toBe(false);
+    expect(t.rows).toHaveLength(4);
+    expect(t.rows[0]).toMatchObject({ memAddr: 0x40, memValue: 0x3a, A: 0x3a });
+    expect(t.rows[2]).toMatchObject({ memAddr: 0x41, memValue: 0xc5, A: 0xc5 });
+  });
+
+  it('bucle infinito: 500 filas y truncated', () => {
+    const st = createSession();
+    st.getState().setText(st.getState().activeId, LOOP);
+    st.getState().assembleActive();
+    const t = st.getState().traceForExport()!;
+    expect(t.rows).toHaveLength(500);
+    expect(t.truncated).toBe(true);
+  });
+
+  it('sin ensamblar o con el código cambiado devuelve null', () => {
+    const st = createSession();
+    expect(st.getState().traceForExport()).toBeNull();
+    st.getState().assembleActive();
+    st.getState().setText(st.getState().activeId, 'NOP');
+    expect(st.getState().traceForExport()).toBeNull();
+  });
+});
