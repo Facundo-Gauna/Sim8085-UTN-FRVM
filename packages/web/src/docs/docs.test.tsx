@@ -227,3 +227,42 @@ describe('contenido: usar el simulador y la entrega', () => {
     expect(expectAsmBlocksAssemble(container)).toBeGreaterThanOrEqual(1);
   });
 });
+
+describe('páginas fuera de la cátedra', () => {
+  const FUERA = ['directivas-macros', 'instalacion', 'complementarias'];
+
+  it.each(FUERA)('%s tiene la etiqueta y el texto de ámbito, y está en el grupo "Fuera"', (id) => {
+    expect(DOCS.find((d) => d.id === id)?.scope).toBe('fuera');
+    const { container } = show(id);
+    expect(screen.getByText('FUERA DE CÁTEDRA')).toBeTruthy();
+    expect(screen.getByText('Fuera de la cátedra (complementario)', { selector: '.doc-scope' })).toBeTruthy();
+    expect(container.querySelector('article.fuera')).not.toBeNull();
+    const nav = screen.getByRole('navigation', { name: 'Documentación' });
+    const link = within(nav).getAllByRole('link').find((a) => a.getAttribute('href') === `#/documentacion/${id}`)!;
+    expect(link.closest('div')!.querySelector('h2')!.textContent).toBe('Fuera de la cátedra (complementario)');
+  });
+
+  it('directivas y macros: nombra todo, los ejemplos ensamblan y la macro se expande', () => {
+    const { container } = show('directivas-macros');
+    const text = container.textContent ?? '';
+    for (const w of ['ORG', 'EQU', 'DB', 'DW', 'DS', 'END', 'MACRO', 'ENDM']) expect(text, w).toMatch(new RegExp(`\\b${w}\\b`));
+    expect(expectAsmBlocksAssemble(container)).toBeGreaterThanOrEqual(6);
+    const macro = [...container.querySelectorAll('pre[data-asm]')].find((b) => b.textContent!.includes('MACRO'))!;
+    const rows = assemble(macro.textContent!, { start: 0x2000 }).rows;
+    expect(rows.map((r) => r.source)).toEqual(['NOP', 'NOP', 'HLT']);
+  });
+
+  it('instalación menciona Linux y Windows y que la web funciona sin instalar', () => {
+    const { container } = show('instalacion');
+    expect(container.textContent).toMatch(/Linux/);
+    expect(container.textContent).toMatch(/Windows/);
+    expect(container.textContent).toMatch(/sin instalar nada/);
+  });
+
+  it('complementarias nombra las herramientas extra', () => {
+    const { container } = show('complementarias');
+    for (const w of ['Toolbox', 'ASCII', 'BCD', 'Complemento a 2', 'Métricas', 'Puertos E/S', 'Interrupciones']) {
+      expect(container.textContent, w).toContain(w);
+    }
+  });
+});

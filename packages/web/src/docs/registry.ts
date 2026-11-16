@@ -3,7 +3,10 @@ import type { JSX } from 'react';
 import { QueEs } from './pages/QueEs';
 import { Banderas } from './pages/Banderas';
 import { Direccionamiento } from './pages/Direccionamiento';
+import { Instalacion } from './pages/Instalacion';
 import { Instrucciones } from './pages/Instrucciones';
+import { Complementarias } from './pages/Complementarias';
+import { DirectivasMacros } from './pages/DirectivasMacros';
 import { EjerciciosEntrega } from './pages/EjerciciosEntrega';
 import { Programa } from './pages/Programa';
 import { Registros } from './pages/Registros';
@@ -33,6 +36,9 @@ export const DOCS: readonly DocEntry[] = [
   { id: 'instrucciones', title: 'Referencia de instrucciones', scope: 'catedra', Component: Instrucciones },
   { id: 'usar-simulador', title: 'Cómo usar el simulador', scope: 'catedra', Component: UsarSimulador },
   { id: 'ejercicios-entrega', title: 'Ejercicios y hojas de entrega', scope: 'catedra', Component: EjerciciosEntrega },
+  { id: 'directivas-macros', title: 'Directivas y macros', scope: 'fuera', Component: DirectivasMacros },
+  { id: 'instalacion', title: 'App de escritorio', scope: 'fuera', Component: Instalacion },
+  { id: 'complementarias', title: 'Herramientas complementarias', scope: 'fuera', Component: Complementarias },
 ];
 
 /** Página por id; un id desconocido o ausente devuelve la primera. */
