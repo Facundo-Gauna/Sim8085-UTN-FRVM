@@ -397,3 +397,20 @@ describe('App: pestañas de archivo', () => {
     expect(s().files).toHaveLength(1);
   });
 });
+
+describe('App: Autocompletar observaciones', () => {
+  it('está deshabilitado sin ensamblar y, tras F5, completa las líneas sin comentario', () => {
+    render(<App />);
+    act(() => s().setText(s().activeId, 'LDA 0040H\nCMA\nHLT\n'));
+    const btn = () => screen.getByRole('button', { name: /Autocompletar observaciones/ }) as HTMLButtonElement;
+    expect(btn().disabled).toBe(true);
+    expect(btn().title).toMatch(/Ensamblá primero/);
+    key('F5');
+    expect(btn().disabled).toBe(false);
+    act(() => void fireEvent.click(btn()));
+    expect(s().files[0]!.text).toContain('; A ← M[0040h]');
+    expect(screen.getByRole('contentinfo', { name: 'Barra de estado' }).textContent).toMatch(
+      /Se completaron 3 observaciones/,
+    );
+  });
+});

@@ -12,6 +12,7 @@ import { createStore, useStore, type StoreApi } from 'zustand';
 import {
   assemble,
   computeMetrics,
+  describeInstruction,
   Machine,
   type AssembleResult,
   type Irq,
@@ -83,6 +84,8 @@ export interface Session {
   setInput(port: number, valueText: string): void;
   removeInput(port: number): void;
   raise(irq: Irq): void;
+  /** Escribe en el editor una observación en las líneas de instrucción sin comentario; devuelve cuántas completó. */
+  autofillObservations(): number;
 }
 
 /** Tandas de este tamaño o más que llegan al límite preguntan si seguir. */
@@ -487,6 +490,43 @@ export function createSession(): StoreApi<Session> {
         }
         r.machine.inputs.delete(port);
         set({ inputs, ...touch() });
+      },
+
+      autofillObservations() {
+        const { asm, stale, files, activeId } = get();
+        if (!asm || !asm.ok || stale) {
+          set({ status: NOT_READY });
+          return 0;
+        }
+        const file = files.find((f) => f.id === activeId)!;
+        const lines = file.text.split('\n');
+        const done = new Set<number>();
+        let count = 0;
+        for (const row of asm.rows) {
+          // Solo la primera fila de instrucción propia de cada línea (no macros ni datos).
+          if (!row.instr || row.fromMacro || done.has(row.line)) continue;
+          done.add(row.line);
+          const raw = lines[row.line - 1];
+          const note = describeInstruction(row);
+          if (raw === undefined || note === undefined || raw.includes(';')) continue;
+          const cr = raw.endsWith('\r') ? '\r' : '';
+          const code = cr ? raw.slice(0, -1) : raw;
+          const pad = code.length < 24 ? code.padEnd(24) : `${code} `;
+          lines[row.line - 1] = `${pad}; ${note}${cr}`;
+          count++;
+        }
+        if (count === 0) {
+          set({ status: { kind: 'info', text: 'No hay líneas sin observación para completar' } });
+          return 0;
+        }
+        get().setText(activeId, lines.join('\n'));
+        set({
+          status: {
+            kind: 'info',
+            text: count === 1 ? 'Se completó 1 observación' : `Se completaron ${count} observaciones`,
+          },
+        });
+        return count;
       },
 
       raise(irq) {

@@ -7,7 +7,7 @@
  * Ejecutar (o Detener mientras corre).
  */
 import { useEffect, useId, useState, type ChangeEvent, type KeyboardEvent, type RefObject } from 'react';
-import { Hammer, Play, RotateCcw, Square, StepBack, StepForward } from 'lucide-react';
+import { Hammer, Play, RotateCcw, Square, StepBack, StepForward, WandSparkles } from 'lucide-react';
 import { fmt16, parseAddress } from '../lib/format';
 import { SPEED_TEXT, type Speed } from '../lib/useRunner';
 import { useSession } from '../state/store';
@@ -88,6 +88,7 @@ export function Toolbar(p: ToolbarProps) {
   const machine = useSession((s) => s.machine);
   const stale = useSession((s) => s.stale);
   useSession((s) => s.version); // halted y canBack viven en la máquina mutable
+  const autofill = useSession((s) => s.autofillObservations);
   const speedId = useId();
 
   const live = machine !== null && !stale;
@@ -175,6 +176,18 @@ export function Toolbar(p: ToolbarProps) {
           title={`Velocidad: ${SPEED_TEXT[p.speed]}`}
           onChange={onSpeed}
         />
+      </div>
+      <div className="tb-group" role="group" aria-label="Entrega">
+        <button
+          type="button"
+          className="btn"
+          onClick={() => void autofill()}
+          disabled={!live}
+          title={live ? 'Escribe una observación en las líneas sin comentario' : 'Ensamblá primero (F5) para autocompletar observaciones'}
+        >
+          <WandSparkles size={16} strokeWidth={1.75} aria-hidden="true" />
+          Autocompletar observaciones
+        </button>
       </div>
     </header>
   );

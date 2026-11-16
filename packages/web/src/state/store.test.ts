@@ -576,3 +576,60 @@ describe('Task 6 fix ronda 1: stale y puntos de corte', () => {
     expect(st.getState().breakpointLines).not.toBe(lines);
   });
 });
+
+describe('autofillObservations', () => {
+  const load = (text: string) => {
+    const st = createSession();
+    st.getState().setText(st.getState().activeId, text);
+    st.getState().assembleActive();
+    return st;
+  };
+  const text = (st: ReturnType<typeof createSession>) => st.getState().files[0]!.text;
+
+  it('completa solo las líneas sin comentario y respeta las que ya lo tienen', () => {
+    const st = load('MVI A, 5\n  CMA ; mío\n  HLT\n');
+    expect(st.getState().autofillObservations()).toBe(2);
+    const lines = text(st).split('\n');
+    expect(lines[0]).toBe('MVI A, 5'.padEnd(24) + '; A ← 05h');
+    expect(lines[1]).toBe('  CMA ; mío');
+    expect(lines[2]).toBe('  HLT'.padEnd(24) + '; detiene el procesador');
+    expect(st.getState().status).toEqual({ kind: 'info', text: 'Se completaron 2 observaciones' });
+    expect(st.getState().stale).toBe(true);
+  });
+
+  it('con una sola línea usa el singular', () => {
+    const st = load('HLT\n');
+    expect(st.getState().autofillObservations()).toBe(1);
+    expect(st.getState().status?.text).toBe('Se completó 1 observación');
+  });
+
+  it('una línea más larga que la columna 24 usa un solo espacio', () => {
+    const st = load('LXI H, 1234H\nHLT\n');
+    st.getState().autofillObservations();
+    expect(text(st).split('\n')[0]).toBe('LXI H, 1234H'.padEnd(24) + '; HL ← 1234h');
+    const long = load('LABEL_MUY_LARGA_AQUI: MVI A, 05H\nHLT\n');
+    long.getState().autofillObservations();
+    expect(text(long).split('\n')[0]).toBe('LABEL_MUY_LARGA_AQUI: MVI A, 05H ; A ← 05h');
+  });
+
+  it('la segunda vez no encuentra nada que completar', () => {
+    const st = load('NOP\nHLT\n');
+    st.getState().autofillObservations();
+    st.getState().assembleActive();
+    expect(st.getState().autofillObservations()).toBe(0);
+  });
+
+  it('sin ensamblar (o con el código cambiado) devuelve 0 y avisa', () => {
+    const st = createSession();
+    expect(st.getState().autofillObservations()).toBe(0);
+    expect(st.getState().status).toEqual({ kind: 'error', text: 'Ensamblá primero (F5)' });
+  });
+
+  it('no toca las llamadas a macro', () => {
+    const st = load('M1 MACRO\n  NOP\n  ENDM\n  M1\n  HLT\n');
+    st.getState().autofillObservations();
+    const lines = text(st).split('\n');
+    expect(lines[3]).toBe('  M1');
+    expect(lines[4]).toContain('; detiene el procesador');
+  });
+});
