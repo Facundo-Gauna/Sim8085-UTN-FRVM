@@ -49,7 +49,7 @@ function Dialog({ onClose, fileService }: Omit<ExportDialogProps, 'open'>) {
   const studentRef = useRef<HTMLInputElement>(null);
   const uid = useId();
 
-  const rows = asm?.rows ?? [];
+  const rows = useMemo(() => asm?.rows ?? [], [asm]);
   const trace = useMemo(() => traceForExport(), [traceForExport]);
   const tracePages = useMemo(() => layoutTrace(trace?.rows ?? []), [trace]);
 

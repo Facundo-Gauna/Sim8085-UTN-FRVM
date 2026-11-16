@@ -106,4 +106,12 @@ describe('ExportDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
     expect(onClose).toHaveBeenCalledTimes(2);
   });
+
+  it('si la sesión se limpia con el diálogo abierto no entra en bucle y no lanza', async () => {
+    open();
+    act(() => s().newFile());
+    expect(s().asm).toBeNull();
+    expect(await screen.findByText('Hoja 1 de 1')).toBeTruthy();
+    expect(download().disabled).toBe(false);
+  });
 });
