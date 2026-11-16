@@ -25,3 +25,6 @@ export type { TraceRow, TraceResult } from './machine/trace';
 export { computeMetrics, diffMetrics } from './machine/metrics';
 export type { Metrics } from './machine/metrics';
 export { describeInstruction } from './asm/observation';
+
+export { checkExercise, caseLabel } from './exercises/check';
+export type { Exercise, TestCase, CheckResult, CheckFailure } from './exercises/types';
