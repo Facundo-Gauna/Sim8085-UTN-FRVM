@@ -10,6 +10,8 @@ import { DirectivasMacros } from './pages/DirectivasMacros';
 import { EjerciciosEntrega } from './pages/EjerciciosEntrega';
 import { Programa } from './pages/Programa';
 import { Registros } from './pages/Registros';
+import { Privacidad } from './pages/Privacidad';
+import { Terminos } from './pages/Terminos';
 import { UsarSimulador } from './pages/UsarSimulador';
 
 export type DocScope = 'catedra' | 'fuera' | 'legal';
@@ -39,6 +41,8 @@ export const DOCS: readonly DocEntry[] = [
   { id: 'directivas-macros', title: 'Directivas y macros', scope: 'fuera', Component: DirectivasMacros },
   { id: 'instalacion', title: 'App de escritorio', scope: 'fuera', Component: Instalacion },
   { id: 'complementarias', title: 'Herramientas complementarias', scope: 'fuera', Component: Complementarias },
+  { id: 'terminos', title: 'Términos', scope: 'legal', Component: Terminos },
+  { id: 'privacidad', title: 'Privacidad', scope: 'legal', Component: Privacidad },
 ];
 
 /** Página por id; un id desconocido o ausente devuelve la primera. */

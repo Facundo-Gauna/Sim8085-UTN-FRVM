@@ -44,6 +44,14 @@ export function DocsPage({ compact = false }: { compact?: boolean } = {}) {
         {doc.scope === 'fuera' && <span className="caps fuera-label">FUERA DE CÁTEDRA</span>}
         <h1>{doc.title}</h1>
         <Component />
+        <nav className="doc-legal" aria-label="Información legal">
+          <a href="#/documentacion/terminos" onClick={(e) => { e.preventDefault(); go('documentacion', 'terminos'); }}>
+            Términos
+          </a>
+          <a href="#/documentacion/privacidad" onClick={(e) => { e.preventDefault(); go('documentacion', 'privacidad'); }}>
+            Privacidad
+          </a>
+        </nav>
       </article>
     </section>
   );

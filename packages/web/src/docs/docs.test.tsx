@@ -266,3 +266,50 @@ describe('páginas fuera de la cátedra', () => {
     }
   });
 });
+
+describe('Términos y Privacidad', () => {
+  it('privacidad declara que no se envía nada, sin cuentas ni analíticas', () => {
+    expect(DOCS.find((d) => d.id === 'privacidad')?.scope).toBe('legal');
+    const { container } = show('privacidad');
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    const text = container.textContent ?? '';
+    expect(text).toMatch(/no se envían/);
+    expect(text).toMatch(/sin cuentas/);
+    expect(text).toMatch(/analíticas/);
+    expect(text).toMatch(/tema/);
+  });
+
+  it('términos declara uso educativo, sin garantía y que no es oficial de la UTN', () => {
+    expect(DOCS.find((d) => d.id === 'terminos')?.scope).toBe('legal');
+    const { container } = show('terminos');
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    const text = container.textContent ?? '';
+    expect(text).toMatch(/sin garantía/);
+    expect(text).toMatch(/UTN/);
+    expect(text).toMatch(/no es un producto oficial/i);
+  });
+
+  it('el índice tiene los tres grupos y cada página lleva enlaces a Términos y Privacidad al pie', () => {
+    show('registros');
+    const nav = screen.getByRole('navigation', { name: 'Documentación' });
+    expect(within(nav).getAllByRole('heading').map((h) => h.textContent)).toEqual([
+      'Dentro de la cátedra',
+      'Fuera de la cátedra (complementario)',
+      'Legal',
+    ]);
+    const foot = screen.getByRole('navigation', { name: 'Información legal' });
+    expect(within(foot).getByRole('link', { name: 'Términos' }).getAttribute('href')).toBe('#/documentacion/terminos');
+    expect(within(foot).getByRole('link', { name: 'Privacidad' }).getAttribute('href')).toBe('#/documentacion/privacidad');
+  });
+
+  it('todos los enlaces internos de todas las páginas apuntan a una página que existe', () => {
+    const ids = new Set(DOCS.map((d) => d.id));
+    for (const d of DOCS) {
+      const { container, unmount } = show(d.id);
+      for (const a of container.querySelectorAll('a[href^="#/documentacion/"]')) {
+        expect(ids.has(a.getAttribute('href')!.replace('#/documentacion/', '')), `${d.id} → ${a.getAttribute('href')}`).toBe(true);
+      }
+      unmount();
+    }
+  });
+});
