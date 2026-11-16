@@ -3,6 +3,7 @@ import type { JSX } from 'react';
 import { QueEs } from './pages/QueEs';
 import { Banderas } from './pages/Banderas';
 import { Direccionamiento } from './pages/Direccionamiento';
+import { Instrucciones } from './pages/Instrucciones';
 import { Programa } from './pages/Programa';
 import { Registros } from './pages/Registros';
 
@@ -27,6 +28,7 @@ export const DOCS: readonly DocEntry[] = [
   { id: 'banderas', title: 'Banderas', scope: 'catedra', Component: Banderas },
   { id: 'programa', title: 'Cómo se escribe un programa', scope: 'catedra', Component: Programa },
   { id: 'direccionamiento', title: 'Modos de direccionamiento', scope: 'catedra', Component: Direccionamiento },
+  { id: 'instrucciones', title: 'Referencia de instrucciones', scope: 'catedra', Component: Instrucciones },
 ];
 
 /** Página por id; un id desconocido o ausente devuelve la primera. */

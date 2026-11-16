@@ -1,7 +1,8 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { assemble, Machine } from '@sim8085/core';
+import { assemble, ISA, Machine } from '@sim8085/core';
 import { DocsPage } from './DocsPage';
+import { GROUPS, missingFromGroups, rowsFor } from './instructionGroups';
 import { DOCS, getDoc, SCOPE_LABEL } from './registry';
 
 beforeEach(() => {
@@ -134,5 +135,41 @@ describe('ámbito: lo "Dentro de la cátedra" no menciona directivas ni macros',
   it.each(DOCS.filter((d) => d.scope === 'catedra').map((d) => d.id))('%s', (id) => {
     const { container } = show(id);
     expect(container.querySelector('article')!.textContent).not.toMatch(/\b(ORG|EQU|MACRO|ENDM|DB|DW|DS)\b/);
+  });
+});
+
+describe('referencia de instrucciones', () => {
+  it('los grupos cubren exactamente los mnemónicos de ISA, sin repetidos', () => {
+    expect(GROUPS).toHaveLength(6);
+    expect(missingFromGroups(ISA)).toEqual({ missing: [], unknown: [], duplicated: [] });
+  });
+
+  it('la comprobación de cobertura detecta un mnemónico nuevo, uno desconocido y uno repetido', () => {
+    const fake = { ...ISA[0]!, mnemonic: 'XYZ' };
+    expect(missingFromGroups([...ISA, fake]).missing).toEqual(['XYZ']);
+    expect(missingFromGroups(ISA.filter((d) => d.mnemonic !== 'HLT')).unknown).toEqual(['HLT']);
+  });
+
+  it('rowsFor: saltos condicionales, aritmética y banderas', () => {
+    expect(rowsFor('JNZ')).toMatchObject({ forms: ['addr'], bytes: '3', tStates: '7/10', flags: '—' });
+    expect(rowsFor('ADD')).toMatchObject({ forms: ['r'], bytes: '1', tStates: '4–7', flags: 'S Z AC P CY' });
+    expect(rowsFor('INR').flags).toBe('S Z AC P');
+    expect(rowsFor('MOV').forms).toEqual(['r1,r2']);
+    expect(rowsFor('MVI').forms).toEqual(['r,d8']);
+    expect(rowsFor('RST')).toMatchObject({ forms: ['n'], tStates: '12' });
+    expect(rowsFor('LXI').forms).toEqual(['B,d16', 'D,d16', 'H,d16', 'SP,d16']);
+    expect(rowsFor('MVI').bytes).toBe('2');
+  });
+
+  it('la página tiene seis tablas con caption y una fila por mnemónico', () => {
+    const { container } = show('instrucciones');
+    expect(screen.getByRole('heading', { level: 1, name: 'Referencia de instrucciones' })).toBeTruthy();
+    const tables = screen.getAllByRole('table');
+    expect(tables).toHaveLength(6);
+    for (const tb of tables) expect(tb.querySelector('caption')!.textContent).toBeTruthy();
+    const body = container.querySelectorAll('tbody tr');
+    expect(body.length).toBe(new Set(ISA.map((d) => d.mnemonic)).size);
+    const hlt = [...body].find((r) => r.querySelector('td')!.textContent === 'HLT')!;
+    expect(hlt.textContent).toMatch(/detiene/i);
   });
 });
