@@ -455,3 +455,19 @@ describe('App: Exportar PDF', () => {
     expect(document.activeElement).toBe(btn());
   });
 });
+
+describe('App: ejercicios', () => {
+  it('Resolver en el simulador muestra la barra del ejercicio y Comprobar responde', () => {
+    render(<App />);
+    act(() => void fireEvent.click(screen.getByRole('button', { name: 'Ejercicios' })));
+    act(() => void fireEvent.click(screen.getByRole('button', { name: /GTP05 · 1/ })));
+    act(() => void fireEvent.click(screen.getByRole('button', { name: 'Resolver en el simulador' })));
+    expect(screen.getByRole('region', { name: 'Ejercicio activo' })).toBeTruthy();
+    expect(document.querySelector('.main')!.hasAttribute('hidden')).toBe(false);
+    expect(s().files.at(-1)!.name).toBe('gtp05-1.asm');
+    act(() => void fireEvent.click(screen.getByRole('button', { name: 'Comprobar' })));
+    expect(within(screen.getByRole('region', { name: 'Ejercicio activo' })).getByRole('status').textContent).toMatch(
+      /Falla cuando 0040h = 3Ah/,
+    );
+  });
+});

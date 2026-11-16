@@ -9,6 +9,8 @@ import { useEffect, useRef, useState } from 'react';
 import { AArrowDown, AArrowUp } from 'lucide-react';
 import { Editor } from './editor/Editor';
 import { Announcer } from './components/Announcer';
+import { ExerciseBar } from './components/exercises/ExerciseBar';
+import { ExercisesPage } from './components/exercises/ExercisesPage';
 import { ExportDialog } from './components/export/ExportDialog';
 import { Drawer } from './components/drawer/Drawer';
 import { downloadActive, openFromDisk } from './components/FileTabs';
@@ -49,7 +51,7 @@ function Shell({ fileService }: { fileService: FileService }) {
     <div className="app">
       <Rail section={section} onGo={(s) => go(s)} enabled={ENABLED} />
       <Simulator fileService={fileService} visible={section === 'simulador'} />
-      {section === 'ejercicios' && <section className="page" aria-label="Ejercicios" />}
+      {section === 'ejercicios' && <ExercisesPage />}
       {section === 'toolbox' && <section className="page" aria-label="Toolbox" />}
     </div>
   );
@@ -142,6 +144,7 @@ function Simulator({ fileService, visible }: { fileService: FileService; visible
           exportRef={exportRef}
         />
         <Notice />
+        <ExerciseBar />
         {pausePrompt && <PauseBanner onContinue={() => afterPause(true)} onStop={() => afterPause(false)} />}
         <main className="work">
           <div className="left">

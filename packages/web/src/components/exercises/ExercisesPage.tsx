@@ -1,0 +1,86 @@
+/** Catálogo de ejercicios: lista agrupada a la izquierda y detalle a la derecha (spec §6.9). */
+import { useState } from 'react';
+import { Check } from 'lucide-react';
+import { EXERCISES, GROUP_TITLES, type Exercise } from '@sim8085/core';
+import { useSection } from '../../lib/useSection';
+import { useSession } from '../../state/store';
+import './exercises.css';
+
+const GROUPS: Exercise['group'][] = ['basico', 'catedra', 'adicional'];
+const h2 = (n: number) => n.toString(16).toUpperCase().padStart(2, '0') + 'h';
+const h4 = (n: number) => n.toString(16).toUpperCase().padStart(4, '0') + 'h';
+
+export function ExercisesPage() {
+  const solved = useSession((s) => s.solved);
+  const startExercise = useSession((s) => s.startExercise);
+  const { go } = useSection();
+  const [selected, setSelected] = useState<string>(EXERCISES[0]!.id);
+  const ex = EXERCISES.find((e) => e.id === selected)!;
+
+  return (
+    <section className="page exercises" aria-label="Ejercicios">
+      <div className="ex-list">
+        {GROUPS.map((g) => (
+          <div key={g}>
+            <h2 className="caps">{GROUP_TITLES[g]}</h2>
+            <ul aria-label={GROUP_TITLES[g]}>
+              {EXERCISES.filter((e) => e.group === g).map((e) => (
+                <li key={e.id}>
+                  <button
+                    type="button"
+                    className="ex-item"
+                    aria-current={e.id === selected ? 'true' : undefined}
+                    onClick={() => setSelected(e.id)}
+                  >
+                    <span>{e.title}</span>
+                    {solved.has(e.id) && (
+                      <span className="ex-solved">
+                        <Check size={14} strokeWidth={2} aria-hidden="true" /> Resuelto
+                      </span>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+      <article className="ex-detail">
+        <h2>{ex.title}</h2>
+        <p className="ex-statement">{ex.statement}</p>
+        {ex.memory.length > 0 && (
+          <table aria-label="Datos iniciales" className="ex-data">
+            <thead>
+              <tr>
+                <th scope="col">Dirección</th>
+                <th scope="col">Valor</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ex.memory.map(([a, v]) => (
+                <tr key={a}>
+                  <td className="mono">{h4(a)}</td>
+                  <td className="mono">{h2(v)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <details key={ex.id}>
+          <summary>Pista</summary>
+          <p>{ex.hint}</p>
+        </details>
+        <button
+          type="button"
+          className="btn primary"
+          onClick={() => {
+            startExercise(ex.id);
+            go('simulador');
+          }}
+        >
+          Resolver en el simulador
+        </button>
+      </article>
+    </section>
+  );
+}
