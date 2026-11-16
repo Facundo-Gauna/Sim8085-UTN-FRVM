@@ -4,8 +4,10 @@ import { QueEs } from './pages/QueEs';
 import { Banderas } from './pages/Banderas';
 import { Direccionamiento } from './pages/Direccionamiento';
 import { Instrucciones } from './pages/Instrucciones';
+import { EjerciciosEntrega } from './pages/EjerciciosEntrega';
 import { Programa } from './pages/Programa';
 import { Registros } from './pages/Registros';
+import { UsarSimulador } from './pages/UsarSimulador';
 
 export type DocScope = 'catedra' | 'fuera' | 'legal';
 
@@ -29,6 +31,8 @@ export const DOCS: readonly DocEntry[] = [
   { id: 'programa', title: 'Cómo se escribe un programa', scope: 'catedra', Component: Programa },
   { id: 'direccionamiento', title: 'Modos de direccionamiento', scope: 'catedra', Component: Direccionamiento },
   { id: 'instrucciones', title: 'Referencia de instrucciones', scope: 'catedra', Component: Instrucciones },
+  { id: 'usar-simulador', title: 'Cómo usar el simulador', scope: 'catedra', Component: UsarSimulador },
+  { id: 'ejercicios-entrega', title: 'Ejercicios y hojas de entrega', scope: 'catedra', Component: EjerciciosEntrega },
 ];
 
 /** Página por id; un id desconocido o ausente devuelve la primera. */

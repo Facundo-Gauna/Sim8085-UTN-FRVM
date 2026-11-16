@@ -1,5 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useShortcuts } from '../lib/useShortcuts';
 import { assemble, ISA, Machine } from '@sim8085/core';
 import { DocsPage } from './DocsPage';
 import { GROUPS, missingFromGroups, rowsFor } from './instructionGroups';
@@ -171,5 +172,58 @@ describe('referencia de instrucciones', () => {
     expect(body.length).toBe(new Set(ISA.map((d) => d.mnemonic)).size);
     const hlt = [...body].find((r) => r.querySelector('td')!.textContent === 'HLT')!;
     expect(hlt.textContent).toMatch(/detiene/i);
+  });
+});
+
+describe('contenido: usar el simulador y la entrega', () => {
+  /** Atajo documentado → manejador del hook que debe dispararse. */
+  const HANDLER: Record<string, { key: string; init: KeyboardEventInit; handler: string }> = {
+    F5: { key: 'F5', init: {}, handler: 'assemble' },
+    F8: { key: 'F8', init: {}, handler: 'toggleRun' },
+    F10: { key: 'F10', init: {}, handler: 'step' },
+    'Shift+F10': { key: 'F10', init: { shiftKey: true }, handler: 'back' },
+    'Ctrl+S': { key: 's', init: { ctrlKey: true }, handler: 'save' },
+    'Ctrl+O': { key: 'o', init: { ctrlKey: true }, handler: 'open' },
+  };
+
+  function Probe({ spies }: { spies: Record<string, () => void> }) {
+    useShortcuts(spies as never);
+    return null;
+  }
+
+  it('los atajos documentados existen y disparan lo que la página dice', () => {
+    const { container } = show('usar-simulador');
+    const documented = [...container.querySelectorAll('kbd')].map((k) => k.textContent!);
+    for (const k of ['F5', 'F8', 'F10', 'Shift+F10', 'F9', 'Ctrl+S', 'Ctrl+O']) expect(documented).toContain(k);
+    cleanup();
+    // F9 (editor) y F2 (celda de memoria) viven en sus componentes y tienen sus propias pruebas.
+    for (const k of documented.filter((d) => d !== 'F9' && d !== 'F2')) {
+      const spec = HANDLER[k];
+      expect(spec, `atajo sin verificar: ${k}`).toBeDefined();
+      const spies = Object.fromEntries(['assemble', 'toggleRun', 'step', 'back', 'open', 'save'].map((n) => [n, vi.fn()]));
+      const { unmount } = render(<Probe spies={spies} />);
+      act(() => void fireEvent.keyDown(window, { key: spec!.key, ...spec!.init }));
+      expect(spies[spec!.handler], k).toHaveBeenCalledTimes(1);
+      unmount();
+    }
+  });
+
+  it('usar-simulador avisa que la web no guarda y nombra los controles reales', () => {
+    const { container } = show('usar-simulador');
+    const text = container.textContent ?? '';
+    expect(text).toMatch(/no guarda/);
+    for (const w of ['Ensamblar', 'Ejecutar', 'Paso', 'Atrás', 'Reiniciar', 'Salida', 'Pila', 'Puertos E/S', 'Interrupciones', 'Métricas']) {
+      expect(text, w).toContain(w);
+    }
+    expect(expectAsmBlocksAssemble(container)).toBeGreaterThanOrEqual(0);
+  });
+
+  it('ejercicios-entrega nombra el flujo completo y los límites', () => {
+    const { container } = show('ejercicios-entrega');
+    const text = container.textContent ?? '';
+    for (const w of ['80 caracteres', '500', 'Autocompletar observaciones', 'Comprobar', 'nibble alto', 'Exportar PDF', 'GTP05']) {
+      expect(text, w).toContain(w);
+    }
+    expect(expectAsmBlocksAssemble(container)).toBeGreaterThanOrEqual(1);
   });
 });
