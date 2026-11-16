@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { defaultSession } from './state/store';
 import type { FileService } from './services/fileService';
 
@@ -501,7 +502,7 @@ describe('App: celular', () => {
 
   it('la regla compacta no fija un ancho mínimo mayor que un celular', () => {
     // Vitest no procesa el CSS (?raw llega vacío): se lee el archivo del disco.
-    const docsCss = readFileSync(new URL('./docs/docs.css', import.meta.url), 'utf8');
+    const docsCss = readFileSync(join(__dirname, 'docs/docs.css'), 'utf8');
     const rule = /\.docs\.compact[^{]*\{([^}]*)\}/.exec(docsCss);
     expect(rule, 'falta la regla .docs.compact').not.toBeNull();
     expect(rule![1]).not.toMatch(/min-width/);
