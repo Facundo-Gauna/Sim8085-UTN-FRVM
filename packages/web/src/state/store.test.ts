@@ -662,3 +662,103 @@ describe('traceForExport', () => {
     expect(st.getState().traceForExport()).toBeNull();
   });
 });
+
+describe('ejercicio activo', () => {
+  const SOL = 'LDA 0040H\nCMA\nSTA 0041H\nHLT\n';
+
+  it('startExercise abre un archivo nuevo con el starter, dirección y datos del ejercicio', () => {
+    const st = createSession();
+    const before = st.getState().files[0]!;
+    expect(st.getState().startExercise('gtp05-1')).toBe(true);
+    const s = st.getState();
+    expect(s.files).toHaveLength(2);
+    expect(s.files[0]).toEqual(before);
+    expect(s.files[1]!.name).toBe('gtp05-1.asm');
+    expect(s.activeId).toBe(s.files[1]!.id);
+    expect(s.files[1]!.text).toContain('HLT');
+    expect(s.startAddress).toBe(0x2000);
+    expect([...s.userMemory]).toEqual([[0x40, 0x3a]]);
+    expect(s.inputs.size).toBe(0);
+    expect(s.exercise!.id).toBe('gtp05-1');
+    expect(s.exerciseResult).toBeNull();
+    expect(s.asm).toBeNull();
+    expect(s.status).toEqual({ kind: 'info', text: 'Ejercicio cargado: GTP05 · 1' });
+  });
+
+  it('el ejercicio 2 cambia la dirección de inicio a 1000h y reemplaza los datos', () => {
+    const st = createSession();
+    st.getState().startExercise('gtp05-2');
+    expect(st.getState().startAddress).toBe(0x1000);
+    expect([...st.getState().userMemory].sort((a, b) => a[0] - b[0])).toEqual([[0x2000, 0xf0], [0x2001, 0x3c]]);
+  });
+
+  it('abrir el mismo ejercicio dos veces numera el archivo', () => {
+    const st = createSession();
+    st.getState().startExercise('gtp05-1');
+    st.getState().startExercise('gtp05-1');
+    expect(st.getState().files.map((f) => f.name).slice(1)).toEqual(['gtp05-1.asm', 'gtp05-1-2.asm']);
+  });
+
+  it('un id desconocido devuelve false y no cambia nada', () => {
+    const st = createSession();
+    const before = st.getState();
+    expect(st.getState().startExercise('x')).toBe(false);
+    expect(st.getState().files).toBe(before.files);
+    expect(st.getState().exercise).toBeNull();
+  });
+
+  it('checkExerciseNow: correcto → resultado, resuelto y estado', () => {
+    const st = createSession();
+    st.getState().startExercise('gtp05-1');
+    st.getState().setText(st.getState().activeId, SOL);
+    const r = st.getState().checkExerciseNow()!;
+    expect(r).toEqual({ ok: true, passed: 4, total: 4 });
+    expect(st.getState().exerciseResult).toEqual(r);
+    expect(st.getState().solved.has('gtp05-1')).toBe(true);
+    expect(st.getState().status).toEqual({ kind: 'info', text: '¡Correcto! Pasó los 4 casos' });
+    expect(st.getState().asm).toBeNull();
+    expect(st.getState().machine).toBeNull();
+  });
+
+  it('checkExerciseNow: incorrecto → mensaje del caso y no se marca resuelto', () => {
+    const st = createSession();
+    st.getState().startExercise('gtp05-1');
+    const r = st.getState().checkExerciseNow()!;
+    expect(r.failure!.message).toBe('Falla cuando 0040h = 3Ah: 0041h debía ser C5h y quedó 00h');
+    expect(st.getState().status).toEqual({ kind: 'error', text: r.failure!.message });
+    expect(st.getState().solved.size).toBe(0);
+  });
+
+  it('checkExerciseNow: errores de ensamblado y bucle infinito no lanzan', () => {
+    const st = createSession();
+    st.getState().startExercise('gtp05-1');
+    st.getState().setText(st.getState().activeId, 'MVI A, A1H');
+    expect(st.getState().checkExerciseNow()!.failure!.kind).toBe('assemble');
+    st.getState().setText(st.getState().activeId, LOOP);
+    expect(st.getState().checkExerciseNow()!.failure!.kind).toBe('no-halt');
+    st.getState().setText(st.getState().activeId, '');
+    expect(st.getState().checkExerciseNow()!.ok).toBe(false);
+  });
+
+  it('sin ejercicio activo devuelve null', () => {
+    expect(createSession().getState().checkExerciseNow()).toBeNull();
+  });
+
+  it('leaveExercise conserva el archivo y limpia el ejercicio', () => {
+    const st = createSession();
+    st.getState().startExercise('gtp05-1');
+    st.getState().checkExerciseNow();
+    st.getState().leaveExercise();
+    expect(st.getState().exercise).toBeNull();
+    expect(st.getState().exerciseResult).toBeNull();
+    expect(st.getState().files).toHaveLength(2);
+  });
+
+  it('con un único caso el mensaje va en singular', () => {
+    const st = createSession();
+    st.getState().startExercise('basico-cargar');
+    st.getState().setText(st.getState().activeId, 'MVI A, 5AH\nSTA 3000H\nHLT');
+    st.getState().checkExerciseNow();
+    expect(st.getState().status!.text).toBe('¡Correcto! Pasó el único caso');
+  });
+});

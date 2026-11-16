@@ -13,9 +13,13 @@ import {
   assemble,
   buildTrace,
   computeMetrics,
+  checkExercise,
   describeInstruction,
+  getExercise,
   Machine,
   type AssembleResult,
+  type CheckResult,
+  type Exercise,
   type Irq,
   type Metrics,
   type StopReason,
@@ -88,6 +92,15 @@ export interface Session {
   raise(irq: Irq): void;
   /** Escribe en el editor una observación en las líneas de instrucción sin comentario; devuelve cuántas completó. */
   autofillObservations(): number;
+  /** Ejercicio en curso (null si no hay), último resultado de "Comprobar" y los resueltos de esta sesión. */
+  exercise: Exercise | null;
+  exerciseResult: CheckResult | null;
+  solved: Set<string>;
+  /** Abre el ejercicio en un archivo nuevo, con su dirección de inicio y sus datos; false si no existe. */
+  startExercise(id: string): boolean;
+  leaveExercise(): void;
+  /** Ensambla el texto del archivo activo y lo verifica contra los casos del ejercicio. */
+  checkExerciseNow(): CheckResult | null;
   /** Traza de la hoja Registros-Banderas-Memoria (tope 500); null sin ensamblado al día. */
   traceForExport(): TraceResult | null;
 }
@@ -170,6 +183,53 @@ export function createSession(): StoreApi<Session> {
       metrics: null,
       status: null,
       pausePrompt: false,
+      exercise: null,
+      exerciseResult: null,
+      solved: new Set(),
+
+      startExercise(id) {
+        const ex = getExercise(id);
+        if (!ex) return false;
+        const names = new Set(get().files.map((f) => f.name));
+        let name = `${ex.id}.asm`;
+        for (let n = 2; names.has(name); n++) name = `${ex.id}-${n}.asm`;
+        const file = makeFile(name, ex.starter);
+        set({
+          files: [...get().files, file],
+          activeId: file.id,
+          startAddress: ex.start,
+          userMemory: new Map(ex.memory),
+          inputs: new Map(),
+          exercise: ex,
+          exerciseResult: null,
+          ...cleared(),
+          prevMetrics: null,
+          status: { kind: 'info', text: `Ejercicio cargado: ${ex.title}` },
+          ...touch(),
+        });
+        return true;
+      },
+
+      leaveExercise() {
+        set({ exercise: null, exerciseResult: null });
+      },
+
+      checkExerciseNow() {
+        const { exercise, files, activeId, startAddress, solved } = get();
+        if (!exercise) return null;
+        const file = files.find((f) => f.id === activeId)!;
+        const result = checkExercise(assemble(file.text, { start: startAddress }), exercise);
+        if (result.ok) {
+          set({
+            exerciseResult: result,
+            solved: new Set(solved).add(exercise.id),
+            status: { kind: 'info', text: result.total === 1 ? '¡Correcto! Pasó el único caso' : `¡Correcto! Pasó los ${result.total} casos` },
+          });
+        } else {
+          set({ exerciseResult: result, status: { kind: 'error', text: result.failure!.message } });
+        }
+        return result;
+      },
 
       newFile() {
         const file = makeFile(nextUntitled(get().files), '');
