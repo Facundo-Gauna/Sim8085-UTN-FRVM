@@ -162,6 +162,8 @@ describe('Puertos E/S', () => {
     add('05', '7F');
     add('100', '01');
     expect(screen.getByRole('alert').textContent).toMatch(/Puerto fuera de rango/);
+    expect(screen.getByLabelText('Puerto en hexadecimal').getAttribute('aria-invalid')).toBe('true');
+    expect(screen.getByLabelText('Valor en hexadecimal').getAttribute('aria-invalid')).toBeNull();
     expect(s().inputs.size).toBe(1);
     expect(screen.getAllByRole('button', { name: /^Quitar puerto/ })).toHaveLength(1);
   });
@@ -171,6 +173,8 @@ describe('Puertos E/S', () => {
     pick(/^Puertos/);
     add('05', 'zz');
     expect(screen.getByRole('alert').textContent).toMatch(/hexadecimal/);
+    expect(screen.getByLabelText('Valor en hexadecimal').getAttribute('aria-invalid')).toBe('true');
+    expect(screen.getByLabelText('Puerto en hexadecimal').getAttribute('aria-invalid')).toBeNull();
     expect(s().inputs.size).toBe(0);
   });
 

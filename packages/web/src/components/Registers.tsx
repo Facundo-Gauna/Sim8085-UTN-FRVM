@@ -111,7 +111,7 @@ export function Registers() {
       <header className="panel-h">
         <span className="caps"><b>01</b>Registros</span>
       </header>
-      <div className="regs">
+      <div className={base === 'bin' ? 'regs bin' : 'regs'}>
         {cell8('A', 'acc wide')}
         {REGS_8.map((r) => cell8(r))}
         {cell16('PC')}

@@ -2,22 +2,35 @@
 .regs {
   padding: 12px;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* Retícula de 12: A ocupa media fila; B C, D E H L de a cuarto; PC SP M de a tercio, en una sola fila (MASTER §8). */
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 8px;
+  container: regs / inline-size;
 }
 .reg,
 .flag {
   border: 1px solid var(--line-strong);
   border-radius: 0;
   display: grid;
+  align-content: start;
   gap: 2px;
   transition: background-color 0.12s;
 }
 .reg {
   padding: 8px 10px;
+  grid-column: span 3;
 }
 .reg.wide {
-  grid-column: span 2;
+  grid-column: span 4;
+}
+.reg.acc {
+  grid-column: span 6;
+}
+/* En binario y con el panel angosto (1024 px), PC, SP y M vuelven a media fila para no partirse en 4 renglones. */
+@container regs (max-width: 380px) {
+  .regs.bin .reg.wide {
+    grid-column: span 6;
+  }
 }
 .reg .k,
 .flag .k {
@@ -71,8 +84,12 @@
   overflow-wrap: anywhere;
 }
 @media (max-width: 640px) {
-  .regs {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .reg,
+  .reg.wide {
+    grid-column: span 6;
+  }
+  .reg.acc {
+    grid-column: span 12;
   }
   .flags {
     grid-template-columns: repeat(3, minmax(0, 1fr));

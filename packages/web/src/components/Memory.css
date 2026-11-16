@@ -4,11 +4,12 @@
   width: 7ch;
   padding: 2px 6px;
   border: 1px solid var(--line-strong);
-  border-radius: 0;
+  border-radius: 4px;
   background: var(--surface);
   font: 400 13px/18px var(--mono);
   font-variant-numeric: tabular-nums;
 }
+.goto[aria-invalid="true"] { border-color: var(--danger); }
 .mem { overflow: auto; max-height: 420px; padding: 4px 12px 8px; }
 .mem table {
   border-collapse: collapse;
@@ -55,10 +56,11 @@
 .mem-foot button {
   padding: 3px 10px;
   border: 1px solid var(--line-strong);
-  border-radius: 0;
+  border-radius: 4px;
   background: var(--surface);
   font: 500 12px/18px var(--sans);
 }
-.mem-foot button:disabled { color: var(--ink-muted); cursor: default; }
+.mem-foot button:hover:not(:disabled) { background: var(--surface-2); }
+.mem-foot button:disabled { color: var(--ink-muted); border-color: var(--line); cursor: not-allowed; }
 .cell-hint { margin-left: 2px; color: var(--ink-muted); }
 .cell-edit { width: calc(100% - 1.2ch); }

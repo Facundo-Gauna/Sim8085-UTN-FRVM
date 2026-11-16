@@ -56,7 +56,14 @@ export function Now() {
   const pc = live ? live.cpu.PC : null;
 
   let body: JSX.Element;
-  if (!machine || !asm) {
+  if (asm && !asm.ok && !stale) {
+    // El último ensamblado falló: no invitar a "empezar", señalar dónde están los errores.
+    body = (
+      <p className="err">
+        <CircleAlert size={14} aria-hidden="true" /> El código tiene errores: corregilos y volvé a ensamblar (detalle en Salida)
+      </p>
+    );
+  } else if (!machine || !asm) {
     body = (
       <p className="muted">
         <Info size={14} aria-hidden="true" /> Ensamblá el código (F5) para empezar

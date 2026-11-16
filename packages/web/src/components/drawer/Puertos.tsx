@@ -87,6 +87,7 @@ export function Puertos() {
             className="in"
             ref={portRef}
             aria-label="Puerto en hexadecimal"
+            aria-invalid={error.startsWith('Puerto:') || undefined}
             placeholder="05h"
             value={port} onChange={(e) => setPort(e.target.value)} spellCheck={false} />
         </label>
@@ -95,6 +96,7 @@ export function Puertos() {
           <input
             className="in"
             aria-label="Valor en hexadecimal"
+            aria-invalid={error.startsWith('Valor:') || undefined}
             placeholder="7Fh"
             value={value} onChange={(e) => setValue(e.target.value)} spellCheck={false} />
         </label>

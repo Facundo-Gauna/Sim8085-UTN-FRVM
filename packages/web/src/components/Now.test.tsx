@@ -62,6 +62,20 @@ describe('Now', () => {
     expect(screen.getByText('Ensamblá el código (F5) para empezar')).toBeTruthy();
   });
 
+  it('con un error de ensamblado señala los errores en vez de invitar a empezar', () => {
+    loadProgram('MVI A, A1H\n');
+    render(<Now />);
+    expect(screen.getByText(/El código tiene errores/)).toBeTruthy();
+    expect(screen.queryByText('Ensamblá el código (F5) para empezar')).toBeNull();
+    act(() => s().assembleActive());
+    expect(screen.getByText(/El código tiene errores/)).toBeTruthy();
+    act(() => {
+      s().setText(s().activeId, 'MVI A, 0A1H\nHLT\n');
+      s().assembleActive();
+    });
+    expect(screen.getByText('MVI A, 0A1H')).toBeTruthy();
+  });
+
   it('un opcode inválido muestra el error', () => {
     loadProgram('DB 08H\n');
     const { container } = render(<Now />);
