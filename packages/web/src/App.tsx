@@ -11,6 +11,7 @@ import { Editor } from './editor/Editor';
 import { Announcer } from './components/Announcer';
 import { ExerciseBar } from './components/exercises/ExerciseBar';
 import { ExercisesPage } from './components/exercises/ExercisesPage';
+import { ToolboxPage } from './components/toolbox/ToolboxPage';
 import { ExportDialog } from './components/export/ExportDialog';
 import { Drawer } from './components/drawer/Drawer';
 import { downloadActive, openFromDisk } from './components/FileTabs';
@@ -52,7 +53,7 @@ function Shell({ fileService }: { fileService: FileService }) {
       <Rail section={section} onGo={(s) => go(s)} enabled={ENABLED} />
       <Simulator fileService={fileService} visible={section === 'simulador'} />
       {section === 'ejercicios' && <ExercisesPage />}
-      {section === 'toolbox' && <section className="page" aria-label="Toolbox" />}
+      {section === 'toolbox' && <ToolboxPage />}
     </div>
   );
 }

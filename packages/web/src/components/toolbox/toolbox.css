@@ -1,0 +1,26 @@
+/* Toolbox: solo tokens de MASTER; "fuera de la cátedra" = borde punteado + etiqueta en versalitas. */
+.toolbox { padding: 16px 24px; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 16px; align-content: start; }
+.tb-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line-strong); }
+.tb-tab { border: 0; border-bottom: 2px solid transparent; background: none; padding: 8px 14px; font: 500 14px/20px var(--sans); color: var(--ink-muted); }
+.tb-tab:hover { color: var(--ink); }
+.tb-tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.tb-tab:focus-visible { outline-offset: -2px; }
+.tb-panel { min-width: 0; min-height: 0; }
+.conv, .twos, .opcodes { display: grid; gap: 12px; max-width: 72ch; }
+.opcodes { max-width: none; }
+.conv-field { display: grid; gap: 2px; font: 500 12px/18px var(--sans); }
+.conv-field input, .conv-field select { padding: 4px 8px; border: 1px solid var(--line-strong); border-radius: 4px; background: var(--surface); color: var(--ink); font: 400 14px/20px var(--sans); }
+.conv-field input.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.conv-field input[aria-invalid="true"] { border-color: var(--danger); }
+.field-error { margin: 0; min-height: 18px; color: var(--danger); font: 500 12px/18px var(--sans); }
+.twos-list { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; }
+.twos-list dt { font: 500 13px/22px var(--sans); color: var(--ink-muted); }
+.twos-list dd { margin: 0; font-size: 14px; line-height: 22px; }
+.count { margin: 0; font: 500 12px/18px var(--sans); color: var(--ink-muted); }
+.tb-scroll { max-height: 55vh; overflow: auto; border: 1px solid var(--line); }
+.tb-table { width: 100%; border-collapse: collapse; font: 400 13px/22px var(--sans); }
+.tb-table th, .tb-table td { padding: 1px 12px 1px 8px; text-align: left; border-bottom: 1px solid var(--line); }
+.tb-table thead th { position: sticky; top: 0; background: var(--surface-2); font: 600 11px/22px var(--sans); color: var(--ink-muted); }
+.tb-table .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.ascii.fuera { display: grid; gap: 8px; padding: 8px; border: 1px dashed var(--line-strong); max-width: 480px; }
+.fuera-label { justify-self: start; }
