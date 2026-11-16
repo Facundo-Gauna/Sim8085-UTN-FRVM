@@ -28,3 +28,4 @@ export { describeInstruction } from './asm/observation';
 
 export { checkExercise, caseLabel } from './exercises/check';
 export type { Exercise, TestCase, CheckResult, CheckFailure } from './exercises/types';
+export { EXERCISES, getExercise, GROUP_TITLES } from './exercises/catalog';
