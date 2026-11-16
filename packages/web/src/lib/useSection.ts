@@ -25,7 +25,8 @@ export function useSection(): Route & { go(section: Section, ...rest: string[]):
   }, []);
   const go = useCallback((section: Section, ...rest: string[]) => {
     location.hash = `#/${[section, ...rest].join('/')}`;
-    setRoute(parseHash(location.hash));
+    // Todas las instancias del hook se enteran en el acto (el hashchange real llega después y es inocuo).
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
   }, []);
   return { ...route, go };
 }
