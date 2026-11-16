@@ -88,17 +88,20 @@ describe('App: composición', () => {
     expect(screen.queryByRole('banner')).toBeNull();
   });
 
-  it('Rail: Simulador es la página actual; Documentación sigue deshabilitada', () => {
+  it('Rail: Simulador es la página actual y las cuatro secciones están habilitadas', () => {
     render(<App />);
     const nav = screen.getByRole('navigation', { name: 'Secciones' });
     expect(within(nav).getByRole('button', { name: 'Simulador' }).getAttribute('aria-current')).toBe('page');
-    const doc = within(nav).getByRole('button', { name: 'Documentación' });
-    expect(doc.getAttribute('aria-disabled')).toBe('true');
-    expect(doc.getAttribute('title')).toMatch(/Próximamente/);
-    expect(doc.hasAttribute('disabled')).toBe(false);
-    for (const name of ['Ejercicios', 'Toolbox']) {
+    for (const name of ['Ejercicios', 'Documentación', 'Toolbox']) {
       expect(within(nav).getByRole('button', { name }).getAttribute('aria-disabled')).toBeNull();
     }
+  });
+
+  it('Documentación abre la documentación', () => {
+    render(<App />);
+    act(() => void fireEvent.click(screen.getByRole('button', { name: 'Documentación' })));
+    expect(screen.getByRole('region', { name: 'Documentación' })).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: 'Qué es assembler y el 8085' })).toBeTruthy();
   });
 
   it('el Rail navega: el Simulador queda montado y oculto y conserva su texto', () => {

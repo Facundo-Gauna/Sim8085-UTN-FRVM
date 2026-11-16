@@ -1,0 +1,22 @@
+/* Documentación: solo tokens de MASTER; "fuera de la cátedra" = borde punteado + etiqueta. */
+.docs { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 24px; padding: 16px 24px; align-content: start; }
+.doc-index h2 { margin: 12px 0 4px; }
+.doc-index ul { list-style: none; margin: 0; padding: 0; }
+.doc-index a { display: block; padding: 4px 10px; border-left: 3px solid transparent; color: var(--ink); text-decoration: none; font: 500 14px/20px var(--sans); }
+.doc-index a:hover { background: var(--surface-2); }
+.doc-index a[aria-current="page"] { border-left-color: var(--accent); background: var(--surface); }
+.doc { max-width: 72ch; min-width: 0; font: 400 15px/24px var(--sans); }
+.doc.fuera { padding: 12px 16px; border: 1px dashed var(--line-strong); }
+.doc-scope { margin: 0 0 4px; font: 600 11px/16px var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); }
+.doc h1 { margin: 0 0 12px; font: 600 24px/32px var(--sans); }
+.doc h2 { margin: 20px 0 4px; font: 600 17px/24px var(--sans); }
+.doc p { margin: 8px 0; }
+.doc code { font-family: var(--mono); font-size: 0.93em; }
+.doc a { color: var(--ink); text-decoration: underline; }
+.doc-code { margin: 8px 0; padding: 10px 12px; overflow: auto; border: 1px solid var(--line); background: var(--surface); font: 400 13px/20px var(--mono); }
+.doc-table-wrap { overflow: auto; margin: 8px 0; border: 1px solid var(--line); }
+.doc-table { width: 100%; border-collapse: collapse; font: 400 13px/20px var(--sans); }
+.doc-table caption { text-align: left; padding: 6px 8px; font: 600 14px/20px var(--sans); }
+.doc-table th, .doc-table td { padding: 2px 10px 2px 8px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+.doc-table thead th { background: var(--surface-2); font: 600 11px/20px var(--sans); color: var(--ink-muted); }
+@media (max-width: 1100px) { .docs { grid-template-columns: 1fr; } }

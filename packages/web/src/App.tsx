@@ -12,6 +12,7 @@ import { Announcer } from './components/Announcer';
 import { ExerciseBar } from './components/exercises/ExerciseBar';
 import { ExercisesPage } from './components/exercises/ExercisesPage';
 import { ToolboxPage } from './components/toolbox/ToolboxPage';
+import { DocsPage } from './docs/DocsPage';
 import { ExportDialog } from './components/export/ExportDialog';
 import { Drawer } from './components/drawer/Drawer';
 import { downloadActive, openFromDisk } from './components/FileTabs';
@@ -37,8 +38,8 @@ import './App.css';
 
 export const MOBILE_QUERY = '(max-width: 899px)';
 
-/** Secciones ya construidas (el plan 5 suma la documentación). */
-const ENABLED: readonly Section[] = ['simulador', 'ejercicios', 'toolbox'];
+/** Secciones ya construidas. */
+const ENABLED: readonly Section[] = ['simulador', 'ejercicios', 'documentacion', 'toolbox'];
 
 export function App({ fileService = webFileService }: { fileService?: FileService } = {}) {
   const mobile = useMediaQuery(MOBILE_QUERY);
@@ -53,6 +54,7 @@ function Shell({ fileService }: { fileService: FileService }) {
       <Rail section={section} onGo={(s) => go(s)} enabled={ENABLED} />
       <Simulator fileService={fileService} visible={section === 'simulador'} />
       {section === 'ejercicios' && <ExercisesPage />}
+      {section === 'documentacion' && <DocsPage />}
       {section === 'toolbox' && <ToolboxPage />}
     </div>
   );
