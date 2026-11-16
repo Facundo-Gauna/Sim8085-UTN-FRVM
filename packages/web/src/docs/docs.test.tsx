@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { assemble } from '@sim8085/core';
+import { assemble, Machine } from '@sim8085/core';
 import { DocsPage } from './DocsPage';
 import { DOCS, getDoc, SCOPE_LABEL } from './registry';
 
@@ -84,5 +84,55 @@ describe('contenido: qué es y registros', () => {
     const code = container.querySelector('pre[data-asm]')!.textContent!;
     const rows = assemble(code, { start: 0x2000 }).rows;
     expect(rows[0]!.bytes).toEqual([0x3a, 0x40, 0x00]);
+  });
+});
+
+describe('contenido: banderas, programa y direccionamiento', () => {
+  it.each([
+    ['banderas', 'Banderas'],
+    ['programa', 'Cómo se escribe un programa'],
+    ['direccionamiento', 'Modos de direccionamiento'],
+  ])('%s tiene su h1 y ejemplos que ensamblan', (id, title) => {
+    const { container } = show(id);
+    expect(screen.getByRole('heading', { level: 1, name: title })).toBeTruthy();
+    expect(expectAsmBlocksAssemble(container)).toBeGreaterThanOrEqual(1);
+  });
+
+  it('banderas nombra las cinco y aclara que el PDF omite AC', () => {
+    const { container } = show('banderas');
+    const text = container.textContent ?? '';
+    for (const f of ['S', 'Z', 'AC', 'P', 'CY']) expect(text).toMatch(new RegExp(`\\b${f}\\b`));
+    expect(text).toMatch(/solo aparecen Z, P, S y CY/);
+  });
+
+  it('banderas: el ejemplo FFh + 01h deja exactamente las banderas que la página dice', () => {
+    const { container } = show('banderas');
+    const code = container.querySelector('pre[data-asm]')!.textContent!;
+    const m = new Machine(assemble(code, { start: 0x2000 }));
+    m.run();
+    expect(m.cpu.A).toBe(0);
+    expect(m.cpu.flags).toMatchObject({ Z: 1, CY: 1, AC: 1, P: 1, S: 0 });
+    expect(container.textContent).toMatch(/Z = 1, CY = 1, AC = 1, P = 1 y S = 0/);
+  });
+
+  it('programa explica el 0 inicial del hexa que empieza con letra', () => {
+    const { container } = show('programa');
+    expect(container.textContent).toContain('0A1H');
+    expect(container.textContent).toMatch(/cero adelante|0 adelante/);
+    expect(container.textContent).toMatch(/80 caracteres/);
+  });
+
+  it('direccionamiento distingue valor de dirección', () => {
+    const { container } = show('direccionamiento');
+    const text = container.textContent ?? '';
+    expect(text).toContain('MVI A, 40H');
+    expect(text).toContain('LDA 0040H');
+  });
+});
+
+describe('ámbito: lo "Dentro de la cátedra" no menciona directivas ni macros', () => {
+  it.each(DOCS.filter((d) => d.scope === 'catedra').map((d) => d.id))('%s', (id) => {
+    const { container } = show(id);
+    expect(container.querySelector('article')!.textContent).not.toMatch(/\b(ORG|EQU|MACRO|ENDM|DB|DW|DS)\b/);
   });
 });

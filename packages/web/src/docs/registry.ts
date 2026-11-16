@@ -1,6 +1,9 @@
 /** Registro de las páginas de documentación, en orden de aparición. */
 import type { JSX } from 'react';
 import { QueEs } from './pages/QueEs';
+import { Banderas } from './pages/Banderas';
+import { Direccionamiento } from './pages/Direccionamiento';
+import { Programa } from './pages/Programa';
 import { Registros } from './pages/Registros';
 
 export type DocScope = 'catedra' | 'fuera' | 'legal';
@@ -21,6 +24,9 @@ export const SCOPE_LABEL: Record<DocScope, string> = {
 export const DOCS: readonly DocEntry[] = [
   { id: 'que-es', title: 'Qué es assembler y el 8085', scope: 'catedra', Component: QueEs },
   { id: 'registros', title: 'Registros y memoria', scope: 'catedra', Component: Registros },
+  { id: 'banderas', title: 'Banderas', scope: 'catedra', Component: Banderas },
+  { id: 'programa', title: 'Cómo se escribe un programa', scope: 'catedra', Component: Programa },
+  { id: 'direccionamiento', title: 'Modos de direccionamiento', scope: 'catedra', Component: Direccionamiento },
 ];
 
 /** Página por id; un id desconocido o ausente devuelve la primera. */
