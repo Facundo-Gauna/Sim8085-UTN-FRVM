@@ -43,7 +43,14 @@ const ENABLED: readonly Section[] = ['simulador', 'ejercicios', 'documentacion',
 
 export function App({ fileService = webFileService }: { fileService?: FileService } = {}) {
   const mobile = useMediaQuery(MOBILE_QUERY);
-  return mobile ? <MobileNotice /> : <Shell fileService={fileService} />;
+  return mobile ? (
+    <>
+      <MobileNotice />
+      <DocsPage compact />
+    </>
+  ) : (
+    <Shell fileService={fileService} />
+  );
 }
 
 /** Barra lateral + la sección visible. El Simulador queda siempre montado (oculto) para no perder el editor ni la máquina. */

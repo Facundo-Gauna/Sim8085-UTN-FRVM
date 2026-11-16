@@ -10,6 +10,9 @@ export function DocsPage({ compact = false }: { compact?: boolean } = {}) {
   const doc = getDoc(rest[0]);
   const { Component } = doc;
 
+  /** En celular el índice es un desplegable: al elegir una página se cierra. */
+  const closeIndex = (el: HTMLElement) => el.closest('details')?.removeAttribute('open');
+
   const index = (
     <nav className="doc-index" aria-label="Documentación">
       {SCOPES.filter((sc) => DOCS.some((d) => d.scope === sc)).map((sc) => (
@@ -24,6 +27,7 @@ export function DocsPage({ compact = false }: { compact?: boolean } = {}) {
                   onClick={(e) => {
                     e.preventDefault();
                     go('documentacion', d.id);
+                    closeIndex(e.currentTarget);
                   }}
                 >
                   {d.title}
@@ -38,7 +42,14 @@ export function DocsPage({ compact = false }: { compact?: boolean } = {}) {
 
   return (
     <section className={`page docs${compact ? ' compact' : ''}`} aria-label="Documentación">
-      {index}
+      {compact ? (
+        <details className="doc-index-wrap">
+          <summary>Índice</summary>
+          {index}
+        </details>
+      ) : (
+        index
+      )}
       <article className={`doc${doc.scope === 'fuera' ? ' fuera' : ''}`}>
         <p className="doc-scope">{SCOPE_LABEL[doc.scope]}</p>
         {doc.scope === 'fuera' && <span className="caps fuera-label">FUERA DE CÁTEDRA</span>}

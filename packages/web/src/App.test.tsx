@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
+import { readFileSync } from 'node:fs';
 import { defaultSession } from './state/store';
 import type { FileService } from './services/fileService';
 
@@ -472,5 +473,37 @@ describe('App: ejercicios', () => {
     expect(within(screen.getByRole('region', { name: 'Ejercicio activo' })).getByRole('status').textContent).toMatch(
       /Falla cuando 0040h = 3Ah/,
     );
+  });
+});
+
+describe('App: celular', () => {
+  it('muestra el aviso y debajo la documentación, sin controles del simulador', () => {
+    mobile = true;
+    render(<App />);
+    expect(screen.getByText(/El simulador está pensado para computadora/)).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Documentación' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Ensamblar/ })).toBeNull();
+    expect(screen.queryByRole('navigation', { name: 'Secciones' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Editor' })).toBeNull();
+  });
+
+  it('el índice va dentro de un <details> "Índice" y navegar muestra la página y lo cierra', () => {
+    mobile = true;
+    render(<App />);
+    const summary = screen.getByText('Índice', { selector: 'summary' });
+    const details = summary.closest('details')!;
+    details.open = true;
+    const nav = within(details).getByRole('navigation', { name: 'Documentación' });
+    act(() => void fireEvent.click(within(nav).getByRole('link', { name: 'Banderas' })));
+    expect(screen.getByRole('heading', { level: 1, name: 'Banderas' })).toBeTruthy();
+    expect(details.open).toBe(false);
+  });
+
+  it('la regla compacta no fija un ancho mínimo mayor que un celular', () => {
+    // Vitest no procesa el CSS (?raw llega vacío): se lee el archivo del disco.
+    const docsCss = readFileSync(new URL('./docs/docs.css', import.meta.url), 'utf8');
+    const rule = /\.docs\.compact[^{]*\{([^}]*)\}/.exec(docsCss);
+    expect(rule, 'falta la regla .docs.compact').not.toBeNull();
+    expect(rule![1]).not.toMatch(/min-width/);
   });
 });
