@@ -24,6 +24,7 @@ import { StatusBar } from './components/StatusBar';
 import { Toolbar } from './components/Toolbar';
 import { FONT_MAX, FONT_MIN, useFontSize } from './lib/useFontSize';
 import { useMediaQuery } from './lib/useMediaQuery';
+import { useSection, type Section } from './lib/useSection';
 import { useRunner, type Speed } from './lib/useRunner';
 import { useShortcuts } from './lib/useShortcuts';
 import { hasUnsavedContent, installUnloadGuard } from './lib/unloadGuard';
@@ -33,12 +34,28 @@ import './App.css';
 
 export const MOBILE_QUERY = '(max-width: 899px)';
 
+/** Secciones ya construidas (el plan 5 suma la documentación). */
+const ENABLED: readonly Section[] = ['simulador', 'ejercicios', 'toolbox'];
+
 export function App({ fileService = webFileService }: { fileService?: FileService } = {}) {
   const mobile = useMediaQuery(MOBILE_QUERY);
-  return mobile ? <MobileNotice /> : <Simulator fileService={fileService} />;
+  return mobile ? <MobileNotice /> : <Shell fileService={fileService} />;
 }
 
-function Simulator({ fileService }: { fileService: FileService }) {
+/** Barra lateral + la sección visible. El Simulador queda siempre montado (oculto) para no perder el editor ni la máquina. */
+function Shell({ fileService }: { fileService: FileService }) {
+  const { section, go } = useSection();
+  return (
+    <div className="app">
+      <Rail section={section} onGo={(s) => go(s)} enabled={ENABLED} />
+      <Simulator fileService={fileService} visible={section === 'simulador'} />
+      {section === 'ejercicios' && <section className="page" aria-label="Ejercicios" />}
+      {section === 'toolbox' && <section className="page" aria-label="Toolbox" />}
+    </div>
+  );
+}
+
+function Simulator({ fileService, visible }: { fileService: FileService; visible: boolean }) {
   const activeId = useSession((s) => s.activeId);
   const files = useSession((s) => s.files);
   const pausePrompt = useSession((s) => s.pausePrompt);
@@ -78,7 +95,7 @@ function Simulator({ fileService }: { fileService: FileService }) {
     back,
     open: () => openFromDisk(fileService),
     save: () => downloadActive(fileService),
-  });
+  }, visible);
 
   const afterPause = (cont: boolean) => {
     if (cont) {
@@ -108,9 +125,8 @@ function Simulator({ fileService }: { fileService: FileService }) {
   }, [exporting]);
 
   return (
-    <div className="app">
-      <Rail />
-      <div className="main">
+    <>
+      <div className="main" hidden={!visible}>
         <Toolbar
           running={runner.running}
           onToggleRun={toggleRun}
@@ -182,6 +198,6 @@ function Simulator({ fileService }: { fileService: FileService }) {
         fileService={fileService}
       />
       <Announcer />
-    </div>
+    </>
   );
 }

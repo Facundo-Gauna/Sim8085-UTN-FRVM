@@ -6,13 +6,14 @@
 import { useId } from 'react';
 import { BookOpen, Cpu, ListChecks, Monitor, Moon, Sun, Wrench, type LucideIcon } from 'lucide-react';
 import { useTheme, type ThemeChoice } from '../theme/useTheme';
+import type { Section } from '../lib/useSection';
 import './Rail.css';
 
-const SECTIONS: { name: string; Icon: LucideIcon; current?: boolean }[] = [
-  { name: 'Simulador', Icon: Cpu, current: true },
-  { name: 'Ejercicios', Icon: ListChecks },
-  { name: 'Documentación', Icon: BookOpen },
-  { name: 'Toolbox', Icon: Wrench },
+const SECTIONS: { id: Section; name: string; Icon: LucideIcon }[] = [
+  { id: 'simulador', name: 'Simulador', Icon: Cpu },
+  { id: 'ejercicios', name: 'Ejercicios', Icon: ListChecks },
+  { id: 'documentacion', name: 'Documentación', Icon: BookOpen },
+  { id: 'toolbox', name: 'Toolbox', Icon: Wrench },
 ];
 
 const THEMES: { id: ThemeChoice; label: string; Icon: LucideIcon }[] = [
@@ -41,7 +42,14 @@ function ChipLogo() {
   );
 }
 
-export function Rail() {
+export interface RailProps {
+  section: Section;
+  onGo(s: Section): void;
+  /** Secciones ya construidas; las demás dicen "Próximamente". */
+  enabled: readonly Section[];
+}
+
+export function Rail({ section, onGo, enabled }: RailProps) {
   const { choice, setChoice } = useTheme();
   const soonId = useId();
   return (
@@ -51,10 +59,17 @@ export function Rail() {
         Próximamente
       </span>
       <ul className="rail-nav">
-        {SECTIONS.map(({ name, Icon, current }) => (
+        {SECTIONS.map(({ id, name, Icon }) => (
           <li key={name}>
-            {current ? (
-              <button type="button" className="rail-btn" aria-label={name} title={name} aria-current="page">
+            {enabled.includes(id) ? (
+              <button
+                type="button"
+                className="rail-btn"
+                aria-label={name}
+                title={name}
+                aria-current={section === id ? 'page' : undefined}
+                onClick={() => onGo(id)}
+              >
                 <Icon size={20} strokeWidth={1.5} aria-hidden="true" />
               </button>
             ) : (

@@ -17,11 +17,15 @@ export interface ShortcutHandlers {
   save(): void;
 }
 
-export function useShortcuts(handlers: ShortcutHandlers): void {
+/** `enabled` en false (otra sección visible) ignora todos los atajos. */
+export function useShortcuts(handlers: ShortcutHandlers, enabled = true): void {
   const ref = useRef(handlers);
   ref.current = handlers;
+  const on = useRef(enabled);
+  on.current = enabled;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (!on.current) return;
       if (e.defaultPrevented && e.key !== 'F5' && e.key !== 'F8' && e.key !== 'F10') return;
       const h = ref.current;
       const mod = e.ctrlKey || e.metaKey;

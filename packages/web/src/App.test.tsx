@@ -55,6 +55,7 @@ beforeEach(() => {
     /* */
   }
   document.documentElement.removeAttribute('data-theme');
+  location.hash = '';
 });
 afterEach(() => {
   cleanup();
@@ -87,16 +88,38 @@ describe('App: composición', () => {
     expect(screen.queryByRole('banner')).toBeNull();
   });
 
-  it('Rail: Simulador es la página actual y las otras tres están deshabilitadas', () => {
+  it('Rail: Simulador es la página actual; Documentación sigue deshabilitada', () => {
     render(<App />);
     const nav = screen.getByRole('navigation', { name: 'Secciones' });
     expect(within(nav).getByRole('button', { name: 'Simulador' }).getAttribute('aria-current')).toBe('page');
-    for (const name of ['Ejercicios', 'Documentación', 'Toolbox']) {
-      const b = within(nav).getByRole('button', { name });
-      expect(b.getAttribute('aria-disabled')).toBe('true');
-      expect(b.getAttribute('title')).toMatch(/Próximamente/);
-      expect(b.hasAttribute('disabled')).toBe(false);
+    const doc = within(nav).getByRole('button', { name: 'Documentación' });
+    expect(doc.getAttribute('aria-disabled')).toBe('true');
+    expect(doc.getAttribute('title')).toMatch(/Próximamente/);
+    expect(doc.hasAttribute('disabled')).toBe(false);
+    for (const name of ['Ejercicios', 'Toolbox']) {
+      expect(within(nav).getByRole('button', { name }).getAttribute('aria-disabled')).toBeNull();
     }
+  });
+
+  it('el Rail navega: el Simulador queda montado y oculto y conserva su texto', () => {
+    render(<App />);
+    const text = s().files[0]!.text;
+    const nav = screen.getByRole('navigation', { name: 'Secciones' });
+    act(() => void fireEvent.click(within(nav).getByRole('button', { name: 'Ejercicios' })));
+    expect(screen.getByRole('region', { name: 'Ejercicios' })).toBeTruthy();
+    expect(within(nav).getByRole('button', { name: 'Ejercicios' }).getAttribute('aria-current')).toBe('page');
+    expect(document.querySelector('.main')!.hasAttribute('hidden')).toBe(true);
+    act(() => void fireEvent.click(within(nav).getByRole('button', { name: 'Simulador' })));
+    expect(document.querySelector('.main')!.hasAttribute('hidden')).toBe(false);
+    expect(s().files[0]!.text).toBe(text);
+  });
+
+  it('los atajos del simulador no actúan fuera del Simulador', () => {
+    render(<App />);
+    act(() => void fireEvent.click(screen.getByRole('button', { name: 'Toolbox' })));
+    expect(screen.getByRole('region', { name: 'Toolbox' })).toBeTruthy();
+    key('F5');
+    expect(s().asm).toBeNull();
   });
 
   it('los botones de tema ponen data-theme', () => {
