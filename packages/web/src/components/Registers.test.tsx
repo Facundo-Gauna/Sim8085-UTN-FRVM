@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Flags } from './Flags';
 import { Registers } from './Registers';
@@ -11,6 +11,11 @@ afterEach(cleanup);
 const s = () => defaultSession.getState();
 const stepOnce = () => act(() => s().step());
 const cell = (label: RegExp) => screen.getByLabelText(label);
+/** Pasa el mouse por el elemento y devuelve el texto del cartel de ayuda. */
+const tip = (el: HTMLElement) => {
+  fireEvent.mouseEnter(el);
+  return screen.getByRole('tooltip').textContent ?? '';
+};
 
 function assembleSample() {
   act(() => s().assembleActive());
@@ -31,8 +36,10 @@ describe('Registers', () => {
     expect(a.classList.contains('changed')).toBe(true);
     expect(a.textContent).toContain('3Ah');
     expect(a.querySelector('[aria-hidden="true"]')?.textContent).toBe('•');
-    expect(a.getAttribute('title')).toContain('Antes: 00h');
-    expect(a.getAttribute('title')).toContain('Hex 3Ah · Dec 58 · Bin 0011 1010 · Con signo 58');
+    const t = tip(a);
+    expect(t).toContain('Acumulador');
+    expect(t).toContain('Antes: 00h');
+    expect(t).toContain('Hex 3Ah · Dec 58 · Bin 0011 1010 · Con signo 58');
     const b = cell(/^B: 00h$/);
     expect(b.classList.contains('changed')).toBe(false);
     expect(b.textContent).not.toContain('•');
@@ -54,7 +61,9 @@ describe('Registers', () => {
     render(<Registers />);
     expect(cell(/^PC: 2003h/).textContent).toContain('2003h');
     const m = cell(/^M: 00h$/);
-    expect(m.getAttribute('title')).toBe('M = memoria apuntada por HL (dirección 0000h)');
+    const t = tip(m);
+    expect(t).toContain('Memoria apuntada por HL');
+    expect(t).toContain('HL apunta a la dirección 0000h');
   });
 
   it('PC se marca en un paso normal y no si el salto cae en sí mismo', () => {
@@ -106,7 +115,7 @@ describe('Registers: M', () => {
     const m = cell(/^M: 55h \(cambió desde 00h\)$/);
     expect(m.classList.contains('changed')).toBe(true);
     expect(m.textContent).toContain('•');
-    expect(m.getAttribute('title')).toContain('Antes: 00h');
+    expect(tip(m)).toContain('Antes: 00h');
   });
 
   it('INR M cambia el byte apuntado', () => {
@@ -140,7 +149,9 @@ describe('Flags', () => {
     const ac = container.querySelector('[data-fuera-catedra]')!;
     expect(ac.textContent).toContain('AC');
     expect(ac.textContent).toContain('FUERA DE CÁTEDRA');
-    expect(ac.getAttribute('title')).toBe('AC (acarreo auxiliar) no figura en la plantilla de la cátedra');
+    const t = tip(ac as HTMLElement);
+    expect(t).toContain('Acarreo auxiliar');
+    expect(t).toContain('no figura en la plantilla de la cátedra');
   });
 
   it('marca las banderas que cambiaron según lastChanges', () => {
@@ -166,5 +177,33 @@ describe('Flags', () => {
     assembleSample();
     act(() => s().setText(s().activeId, 'NOP\n'));
     expect(render(<Flags />).container.textContent).toContain('—');
+  });
+});
+
+describe('Carteles de ayuda', () => {
+  it('cada registro, PC, SP, M y cada bandera explican qué son', () => {
+    assembleSample();
+    const { container } = render(
+      <>
+        <Registers />
+        <Flags />
+      </>,
+    );
+    const expected: Array<[RegExp, string]> = [
+      [/^PC: /, 'Contador de programa'],
+      [/^SP: /, 'Puntero de pila'],
+      [/^M: /, 'Memoria apuntada por HL'],
+      [/^H: /, 'par HL'],
+      [/^S: /, 'Signo'],
+      [/^Z: /, 'Cero'],
+      [/^P: /, 'Paridad'],
+      [/^CY: /, 'Acarreo'],
+    ];
+    for (const [label, text] of expected) {
+      expect(tip(cell(label))).toContain(text);
+      fireEvent.mouseLeave(cell(label));
+      expect(screen.queryByRole('tooltip')).toBeNull();
+    }
+    expect(container.querySelectorAll('[tabindex="0"]').length).toBeGreaterThanOrEqual(15);
   });
 });

@@ -1,6 +1,8 @@
 import type { Change } from '@sim8085/core';
 import { allBases8, fmt16, fmt8, type Base } from '../lib/format';
+import { REGISTER_PANEL_HELP } from '../lib/cpuHelp';
 import { useSession } from '../state/store';
+import { useTip } from './Tip';
 import './Registers.css';
 
 const REGS_8 = ['B', 'C', 'D', 'E', 'H', 'L'] as const;
@@ -15,18 +17,23 @@ interface CellProps {
 }
 
 function Cell({ name, value, label, title, changed, className = '' }: CellProps) {
+  // `title` trae los detalles (valor anterior, bases): líneas separadas por salto.
+  const help = REGISTER_PANEL_HELP[name]!;
+  const detail = title ? title.split('\n') : undefined;
+  const tip = useTip({ title: help.title, body: help.body, ...(detail ? { detail } : {}) });
   return (
     <div
       className={`reg ${className} ${changed ? 'changed' : ''}`.trim()}
       role="group"
       aria-label={label}
-      title={title}
+      {...tip.props}
     >
       <span className="k">
         {name}
         {changed && <span className="mark" aria-hidden="true">•</span>}
       </span>
       <span className="v">{value}</span>
+      {tip.bubble}
     </div>
   );
 }
@@ -104,7 +111,7 @@ export function Registers() {
     mBefore = memBefore.get(hlBefore) ?? live.memory[hlBefore]!;
   }
   const mChanged = live !== null && mBefore !== mVal;
-  const mTitle = `M = memoria apuntada por HL (dirección ${fmt16(hl, 'hex')})`;
+  const mTitle = `HL apunta a la dirección ${fmt16(hl, 'hex')}`;
 
   return (
     <section className="panel" aria-label="Registros">
@@ -126,7 +133,7 @@ export function Registers() {
             className="wide"
           />
         ) : (
-          <Cell name="M" value="—" label="M: sin datos" title="M = memoria apuntada por HL" changed={false} className="wide" />
+          <Cell name="M" value="—" label="M: sin datos" title="" changed={false} className="wide" />
         )}
       </div>
     </section>

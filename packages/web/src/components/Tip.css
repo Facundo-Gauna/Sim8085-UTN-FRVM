@@ -1,0 +1,28 @@
+/* Cartel de ayuda de registros y banderas: mismos tokens y bordes que el del editor. */
+.tip {
+  position: fixed;
+  z-index: 1000;
+  width: max-content;
+  max-width: 300px;
+  /* Encima del elemento, centrado; 6 px de aire. */
+  transform: translate(-50%, calc(-100% - 6px));
+  padding: 8px 10px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  font: 400 13px/20px var(--sans);
+  pointer-events: none;
+}
+.tip-title {
+  font: 600 13px/20px var(--mono);
+  color: var(--ink);
+}
+.tip-detail {
+  margin-top: 4px;
+  font: 400 12px/18px var(--mono);
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+.tip-detail + .tip-detail { margin-top: 0; }
+.tip-body + .tip-detail { margin-top: 6px; }
