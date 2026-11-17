@@ -1,9 +1,13 @@
+import type { WorkspaceService } from './workspace';
+
 export interface FileService {
   openFiles(): Promise<{ name: string; text: string }[]>;
   saveFile(name: string, text: string): Promise<void>;
   /** Guarda bytes (p. ej. un PDF). En la web es una descarga; el escritorio lo guarda en la carpeta. */
-  saveBinary(name: string, bytes: Uint8Array, mime: string): Promise<void>;
+  saveBinary(name: string, bytes: Uint8Array, mime: string): Promise<string | void>;
   readonly canPickFolder: boolean;
+  /** Carpeta de trabajo: solo existe en la app de escritorio. */
+  readonly workspace?: WorkspaceService;
 }
 
 const ACCEPTED = /\.(asm|txt)$/i;
