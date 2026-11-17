@@ -8,6 +8,9 @@ on:
   push:
     tags: ['v*']
 
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:
@@ -28,12 +31,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev patchelf
       - run: npm ci
-      - name: Pruebas
-        run: |
-          npm test -w @sim8085/core
-          npm test -w @sim8085/web
-          node --test packages/desktop/scripts
-          cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml
+      - name: Pruebas del núcleo
+        run: npm test -w @sim8085/core
+      - name: Pruebas de la web
+        run: npm test -w @sim8085/web
+      - name: Pruebas de los scripts
+        run: node --test "packages/desktop/scripts/*.test.mjs"
+      - name: Pruebas de Rust
+        run: cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml
       - run: npm run build -w @sim8085/desktop
       - name: Zip portable de Windows
         if: runner.os == 'Windows'
@@ -50,3 +55,18 @@ jobs:
         with:
           name: instaladores-${{ matrix.os }}
           path: dist-downloads/*
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v') && !cancelled() && needs.build.result != 'cancelled'
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: instaladores-*
+          path: instaladores
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: instaladores/*
+          fail_on_unmatched_files: false
