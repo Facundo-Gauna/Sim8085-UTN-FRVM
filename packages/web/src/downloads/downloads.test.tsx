@@ -1,5 +1,5 @@
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Notice } from '../components/Notice';
 import { Downloads } from './Downloads';
 import { formatSize, loadManifest, parseManifest } from './manifest';
@@ -112,6 +112,7 @@ describe('<Downloads />', () => {
 });
 
 describe('<Notice />', () => {
+  beforeEach(() => localStorage.removeItem('sim8085.notice-dismissed'));
   it('en la web ofrece descargar la app; en el escritorio no', () => {
     const { unmount } = render(<Notice />);
     const link = screen.getByRole('link', { name: 'Descargá la app de escritorio' });
@@ -120,5 +121,16 @@ describe('<Notice />', () => {
     (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {};
     render(<Notice />);
     expect(screen.queryByRole('link', { name: 'Descargá la app de escritorio' })).toBeNull();
+  });
+
+  it('se puede cerrar y no vuelve a aparecer', () => {
+    localStorage.removeItem('sim8085.notice-dismissed');
+    const { unmount } = render(<Notice />);
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar aviso' }));
+    expect(screen.queryByText(/Versión web/)).toBeNull();
+    unmount();
+    render(<Notice />);
+    expect(screen.queryByText(/Versión web/)).toBeNull();
+    localStorage.removeItem('sim8085.notice-dismissed');
   });
 });

@@ -35,3 +35,20 @@
 .mobile-notice .chip-body { fill: var(--chip); }
 .mobile-notice .chip-notch { fill: var(--bg); }
 .mobile-notice .chip-text { fill: var(--on-chip); font: 600 10px/1 var(--mono); }
+
+.notice .notice-text { flex: 1 1 auto; }
+.notice .notice-close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  color: var(--ink-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  cursor: pointer;
+}
+.notice .notice-close:hover { color: var(--ink); border-color: var(--line-strong); }
+.notice .notice-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }

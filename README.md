@@ -4,6 +4,8 @@ Simulador educativo del microprocesador **Intel 8085**, pensado para la cátedra
 
 Funciona **en el navegador, sin instalar nada**, y también como **aplicación de escritorio** para Linux y Windows. No hay cuentas, no hay servidor y no se envía ningún dato: todo corre en la computadora del alumno.
 
+**🔗 Probalo online: <https://sim8085-utn-frvm.vercel.app/>**
+
 ![El simulador con un ejercicio cargado: editor, registros, banderas, memoria y salida](docs/img/simulador.png)
 
 ## Qué resuelve
