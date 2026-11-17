@@ -259,6 +259,14 @@ describe('páginas fuera de la cátedra', () => {
     expect(container.textContent).toMatch(/sin instalar nada/);
   });
 
+  it('instalación incluye las descargas y explica cada formato', () => {
+    const { container } = show('instalacion');
+    expect(screen.getByRole('heading', { level: 2, name: 'Descargas' })).toBeTruthy();
+    const text = container.textContent ?? '';
+    for (const w of ['AppImage', '.deb', '.rpm', 'SmartScreen', 'Más información']) expect(text, w).toContain(w);
+    expect(text).not.toContain('se completa con los pasos');
+  });
+
   it('complementarias nombra las herramientas extra', () => {
     const { container } = show('complementarias');
     for (const w of ['Toolbox', 'ASCII', 'BCD', 'Complemento a 2', 'Métricas', 'Puertos E/S', 'Interrupciones']) {

@@ -1,0 +1,10 @@
+/* Descargas: solo tokens de MASTER. */
+.dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin: 12px 0; }
+.dl-card { padding: 12px 16px; border: 1px solid var(--line-strong); background: var(--surface); }
+.dl-card h3 { margin: 0 0 8px; font: 600 15px/22px var(--sans); }
+.dl-card ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.dl-card li { display: grid; gap: 4px; }
+.dl-card .btn { justify-self: start; text-decoration: none; }
+.dl-size { font: 500 12px/18px var(--sans); color: var(--ink-muted); }
+.dl-hash { font: 400 11px/16px var(--mono); overflow-wrap: anywhere; color: var(--ink-muted); }
+.dl-note { margin: 8px 0; font: 400 14px/22px var(--sans); color: var(--ink-muted); }
