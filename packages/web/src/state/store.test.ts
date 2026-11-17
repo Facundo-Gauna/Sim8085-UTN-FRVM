@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { assemble } from '@sim8085/core';
-import { createSession, SAMPLE } from './store';
+import { createFakeWorkspace } from './fakeWorkspace';
+import { createSession, isModified, SAMPLE } from './store';
 
 const LOOP = 'LP: JMP LP\n';
 const EQU_PROGRAM = 'N EQU 5\nMVI A,N\nHLT\n';
@@ -760,5 +761,171 @@ describe('ejercicio activo', () => {
     st.getState().setText(st.getState().activeId, 'MVI A, 5AH\nSTA 3000H\nHLT');
     st.getState().checkExerciseNow();
     expect(st.getState().status!.text).toBe('¡Correcto! Pasó el único caso');
+  });
+});
+
+describe('carpeta de trabajo', () => {
+  const open = async (initial: Record<string, string> = { 'a.asm': 'NOP\nHLT\n', 'sub/b.asm': 'MVI A, 1\n' }) => {
+    const ws = createFakeWorkspace(initial);
+    const st = createSession();
+    await st.getState().openFolder(ws);
+    return { ws, st };
+  };
+  const tabs = (st: ReturnType<typeof createSession>) => st.getState().files;
+
+  it('openFolder carga el nombre y el árbol; cancelar no cambia nada', async () => {
+    const { st } = await open();
+    expect(st.getState().workspace!.name).toBe('asm');
+    expect(st.getState().workspace!.tree.map((n) => n.path)).toEqual(['sub', 'a.asm']);
+    const cancel = createFakeWorkspace({}, null);
+    const before = st.getState();
+    expect(await st.getState().openFolder(cancel)).toBe(false);
+    expect(st.getState().workspace).toBe(before.workspace);
+    expect(st.getState().fileOpError).toBe('');
+  });
+
+  it('abrir una carpeta nueva desvincula las pestañas con ruta de la carpeta anterior', async () => {
+    const { st } = await open();
+    await st.getState().openWorkspaceFile(createFakeWorkspace({ 'a.asm': 'NOP' }), 'a.asm');
+    const other = createFakeWorkspace({ 'z.asm': 'HLT' }, 'otra');
+    await st.getState().openFolder(other);
+    expect(tabs(st).every((f) => f.path === undefined)).toBe(true);
+    expect(st.getState().workspace!.name).toBe('otra');
+  });
+
+  it('openWorkspaceFile crea una pestaña con ruta, sin modificar, y no duplica', async () => {
+    const { ws, st } = await open();
+    expect(await st.getState().openWorkspaceFile(ws, 'sub/b.asm')).toBe(true);
+    const tab = tabs(st).at(-1)!;
+    expect(tab).toMatchObject({ name: 'b.asm', path: 'sub/b.asm', text: 'MVI A, 1\n', diskText: 'MVI A, 1\n' });
+    expect(st.getState().activeId).toBe(tab.id);
+    expect(isModified(tab)).toBe(false);
+    const n = tabs(st).length;
+    await st.getState().openWorkspaceFile(ws, 'sub/b.asm');
+    expect(tabs(st)).toHaveLength(n);
+  });
+
+  it('abrir un archivo inexistente da error y no crea pestaña', async () => {
+    const { ws, st } = await open();
+    const n = tabs(st).length;
+    expect(await st.getState().openWorkspaceFile(ws, 'no.asm')).toBe(false);
+    expect(st.getState().fileOpError).toBe('El archivo no existe');
+    expect(tabs(st)).toHaveLength(n);
+  });
+
+  it('editar marca modificado y guardar lo baja', async () => {
+    const { ws, st } = await open();
+    await st.getState().openWorkspaceFile(ws, 'a.asm');
+    const id = st.getState().activeId;
+    st.getState().setText(id, 'NOP\nNOP\nHLT\n');
+    expect(isModified(tabs(st).find((f) => f.id === id)!)).toBe(true);
+    expect(await st.getState().saveActive(ws)).toBe(true);
+    expect(ws.files.get('a.asm')).toBe('NOP\nNOP\nHLT\n');
+    expect(isModified(tabs(st).find((f) => f.id === id)!)).toBe(false);
+  });
+
+  it('un fallo al escribir deja el error, la pestaña modificada y el texto intacto', async () => {
+    const { ws, st } = await open();
+    await st.getState().openWorkspaceFile(ws, 'a.asm');
+    const id = st.getState().activeId;
+    st.getState().setText(id, 'NUEVO');
+    ws.failNext('write', 'No hay espacio en el disco');
+    expect(await st.getState().saveActive(ws)).toBe(false);
+    expect(st.getState().fileOpError).toBe('No hay espacio en el disco');
+    const tab = tabs(st).find((f) => f.id === id)!;
+    expect(tab.text).toBe('NUEVO');
+    expect(isModified(tab)).toBe(true);
+    expect(ws.files.get('a.asm')).toBe('NOP\nHLT\n');
+  });
+
+  it('guardar una pestaña sin ruta con nombre crea el archivo y le asigna ruta y nombre', async () => {
+    const { ws, st } = await open();
+    st.getState().newFile();
+    const id = st.getState().activeId;
+    st.getState().setText(id, 'HLT');
+    expect(await st.getState().saveActive(ws, 'nuevo.asm')).toBe(true);
+    expect(ws.files.get('nuevo.asm')).toBe('HLT');
+    expect(tabs(st).find((f) => f.id === id)).toMatchObject({ name: 'nuevo.asm', path: 'nuevo.asm', diskText: 'HLT' });
+    expect(st.getState().workspace!.tree.some((n) => n.path === 'nuevo.asm')).toBe(true);
+  });
+
+  it('sin nombre, o con un nombre que ya existe, no guarda ni pisa', async () => {
+    const { ws, st } = await open();
+    st.getState().newFile();
+    st.getState().setText(st.getState().activeId, 'HLT');
+    expect(await st.getState().saveActive(ws)).toBe(false);
+    expect(st.getState().fileOpError).toBe('Falta el nombre del archivo');
+    expect(await st.getState().saveActive(ws, 'a.asm')).toBe(false);
+    expect(st.getState().fileOpError).toBe('El archivo ya existe');
+    expect(ws.files.get('a.asm')).toBe('NOP\nHLT\n');
+    expect(tabs(st).at(-1)!.path).toBeUndefined();
+  });
+
+  it('si la escritura falla tras crear, se quita el archivo vacío y la pestaña queda sin ruta', async () => {
+    const { ws, st } = await open();
+    st.getState().newFile();
+    st.getState().setText(st.getState().activeId, 'HLT');
+    ws.failNext('write', 'Sin permiso para acceder al archivo');
+    expect(await st.getState().saveActive(ws, 'x.asm')).toBe(false);
+    expect(ws.files.has('x.asm')).toBe(false);
+    expect(tabs(st).at(-1)!.path).toBeUndefined();
+  });
+
+  it('renameFile sigue a la pestaña abierta y refresca el árbol; un destino existente falla', async () => {
+    const { ws, st } = await open();
+    await st.getState().openWorkspaceFile(ws, 'a.asm');
+    const id = st.getState().activeId;
+    expect(await st.getState().renameFile(ws, 'a.asm', 'z.asm')).toBe(true);
+    expect(tabs(st).find((f) => f.id === id)).toMatchObject({ path: 'z.asm', name: 'z.asm' });
+    expect(st.getState().workspace!.tree.map((n) => n.path)).toEqual(['sub', 'z.asm']);
+    expect(await st.getState().renameFile(ws, 'z.asm', 'sub/b.asm')).toBe(false);
+    expect(st.getState().fileOpError).toBe('El archivo ya existe');
+    expect(tabs(st).find((f) => f.id === id)!.path).toBe('z.asm');
+  });
+
+  it('deleteFile cierra la pestaña de ese archivo; si no estaba abierto no toca las pestañas', async () => {
+    const { ws, st } = await open();
+    await st.getState().openWorkspaceFile(ws, 'a.asm');
+    const n = tabs(st).length;
+    expect(await st.getState().deleteFile(ws, 'a.asm')).toBe(true);
+    expect(tabs(st)).toHaveLength(n - 1);
+    expect(tabs(st).some((f) => f.path === 'a.asm')).toBe(false);
+    const before = tabs(st);
+    expect(await st.getState().deleteFile(ws, 'sub/b.asm')).toBe(true);
+    expect(tabs(st)).toEqual(before);
+    expect(st.getState().workspace!.tree).toEqual([]);
+  });
+
+  it('createFile crea el archivo vacío, lo abre y actualiza el árbol; uno existente falla', async () => {
+    const { ws, st } = await open();
+    expect(await st.getState().createFile(ws, 'n/nuevo.asm')).toBe(true);
+    expect(ws.files.get('n/nuevo.asm')).toBe('');
+    expect(tabs(st).at(-1)).toMatchObject({ path: 'n/nuevo.asm', name: 'nuevo.asm', text: '' });
+    expect(st.getState().workspace!.tree.map((n) => n.path)).toContain('n');
+    expect(await st.getState().createFile(ws, 'a.asm')).toBe(false);
+    expect(st.getState().fileOpError).toBe('El archivo ya existe');
+  });
+
+  it('cada operación limpia el error anterior y nunca lanza, aunque el servicio lance', async () => {
+    const { ws, st } = await open();
+    await st.getState().openWorkspaceFile(ws, 'no.asm');
+    expect(st.getState().fileOpError).not.toBe('');
+    await st.getState().refreshTree(ws);
+    expect(st.getState().fileOpError).toBe('');
+    const boom = { ...ws, tree: () => { throw new Error('síncrono'); } } as unknown as typeof ws;
+    expect(await st.getState().refreshTree(boom)).toBe(false);
+    expect(st.getState().fileOpError).toBe('síncrono');
+  });
+});
+
+describe('isModified', () => {
+  const tab = (extra: object) => ({ id: 'f', name: 'a.asm', text: 'x', ...extra });
+  it('con ruta compara con el texto del disco; sin ruta usa la referencia dada', () => {
+    expect(isModified(tab({ path: 'a.asm', diskText: 'x' }))).toBe(false);
+    expect(isModified(tab({ path: 'a.asm', diskText: 'y' }))).toBe(true);
+    expect(isModified(tab({}), 'x')).toBe(false);
+    expect(isModified(tab({}), 'y')).toBe(true);
+    expect(isModified(tab({ text: '  ' }), 'y')).toBe(false);
+    expect(isModified(tab({}))).toBe(false);
   });
 });

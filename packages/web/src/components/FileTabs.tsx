@@ -10,7 +10,7 @@
  */
 import { useEffect, useLayoutEffect, useReducer, useRef, useState, type KeyboardEvent } from 'react';
 import { Download, FolderOpen, Plus, X } from 'lucide-react';
-import { defaultSession, useSession, type FileTab } from '../state/store';
+import { defaultSession, isModified, useSession, type FileTab } from '../state/store';
 import type { FileService } from '../services/fileService';
 
 /** Abre archivos del disco; no se espera la promesa (puede no resolverse si se cancela). */
@@ -80,7 +80,7 @@ export function FileTabs({ fileService }: { fileService: FileService }) {
     if (confirm) safeRef.current?.focus();
   }, [confirm]);
 
-  const modified = (f: FileTab) => f.text.trim() !== '' && f.text !== (baselines.get(f.id) ?? f.text);
+  const modified = (f: FileTab) => isModified(f, baselines.get(f.id));
 
   const doClose = (id: string) => {
     closeFile(id);

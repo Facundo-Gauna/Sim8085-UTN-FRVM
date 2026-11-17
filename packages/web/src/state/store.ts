@@ -26,14 +26,28 @@ import {
   type TraceResult,
 } from '@sim8085/core';
 import { fmt16, parseAddress, parseByte, type Base } from '../lib/format';
+import { errorText, type TreeNode, type WorkspaceService } from '../services/workspace';
 import { SAMPLE } from './sample';
 
 export { SAMPLE } from './sample';
+
+/**
+ * ¿La pestaña tiene cambios sin guardar? Con ruta, contra el texto del disco; sin ruta, contra la
+ * referencia que lleva la interfaz (texto al abrir/descargar) y un archivo vacío no cuenta.
+ */
+export function isModified(tab: FileTab, baseline?: string): boolean {
+  if (tab.path !== undefined) return tab.text !== tab.diskText;
+  return tab.text.trim() !== '' && tab.text !== (baseline ?? tab.text);
+}
 
 export interface FileTab {
   id: string;
   name: string;
   text: string;
+  /** Ruta relativa a la carpeta de trabajo (solo escritorio, archivos que viven en el disco). */
+  path?: string;
+  /** Último texto leído o guardado en el disco; `text !== diskText` = modificado. */
+  diskText?: string;
 }
 
 export interface Status {
@@ -92,6 +106,18 @@ export interface Session {
   raise(irq: Irq): void;
   /** Escribe en el editor una observación en las líneas de instrucción sin comentario; devuelve cuántas completó. */
   autofillObservations(): number;
+  /** Carpeta de trabajo (escritorio): nombre y árbol de archivos; null si no hay. */
+  workspace: { name: string; tree: TreeNode[] } | null;
+  /** Último error de una operación de disco ('' si no hubo). Las acciones devuelven true si salieron bien y nunca lanzan. */
+  fileOpError: string;
+  openFolder(ws: WorkspaceService): Promise<boolean>;
+  refreshTree(ws: WorkspaceService): Promise<boolean>;
+  openWorkspaceFile(ws: WorkspaceService, path: string): Promise<boolean>;
+  /** Guarda el archivo activo; sin ruta hace falta `as` (guardar como). */
+  saveActive(ws: WorkspaceService, as?: string): Promise<boolean>;
+  createFile(ws: WorkspaceService, path: string): Promise<boolean>;
+  renameFile(ws: WorkspaceService, from: string, to: string): Promise<boolean>;
+  deleteFile(ws: WorkspaceService, path: string): Promise<boolean>;
   /** Ejercicio en curso (null si no hay), último resultado de "Comprobar" y los resueltos de esta sesión. */
   exercise: Exercise | null;
   exerciseResult: CheckResult | null;
@@ -160,6 +186,37 @@ export function createSession(): StoreApi<Session> {
       return null;
     };
 
+    const baseName = (p: string) => p.split('/').pop() ?? p;
+    /** Ejecuta una operación de disco: limpia el error previo y convierte cualquier fallo en `fileOpError`. */
+    const op = async (f: () => Promise<boolean>): Promise<boolean> => {
+      set({ fileOpError: '' });
+      try {
+        return await f();
+      } catch (e) {
+        set({ fileOpError: errorText(e) });
+        return false;
+      }
+    };
+    const loadTree = async (ws: WorkspaceService) => {
+      const tree = await ws.tree();
+      const w = get().workspace;
+      if (w) set({ workspace: { ...w, tree } });
+    };
+    /** Refresca el árbol tras una operación que ya salió bien: si falla, avisa pero no la deshace. */
+    const refresh = async (ws: WorkspaceService) => {
+      try {
+        await loadTree(ws);
+      } catch (e) {
+        set({ fileOpError: errorText(e) });
+      }
+    };
+    const patchTab = (id: string, patch: Partial<FileTab>) =>
+      set({ files: get().files.map((f) => (f.id === id ? { ...f, ...patch } : f)) });
+    const addPathTab = (path: string, text: string) => {
+      const file: FileTab = { ...makeFile(baseName(path), text), path, diskText: text };
+      set({ files: [...get().files, file], activeId: file.id, ...cleared(), ...touch() });
+    };
+
     const nextUntitled = (files: FileTab[]): string => {
       const names = new Set(files.map((f) => f.name));
       let n = 1;
@@ -186,6 +243,85 @@ export function createSession(): StoreApi<Session> {
       exercise: null,
       exerciseResult: null,
       solved: new Set(),
+      workspace: null,
+      fileOpError: '',
+
+      openFolder: (ws) =>
+        op(async () => {
+          const info = await ws.pickFolder();
+          if (!info) return false; // cancelar el cuadro no cambia nada
+          const tree = await ws.tree();
+          // Las pestañas de la carpeta anterior pasan a ser archivos sin guardar: no se escribirán en la nueva.
+          const files = get().files.map((f) => (f.path === undefined ? f : { ...f, path: undefined, diskText: undefined }));
+          set({ workspace: { name: info.name, tree }, files });
+          return true;
+        }),
+
+      refreshTree: (ws) =>
+        op(async () => {
+          await loadTree(ws);
+          return true;
+        }),
+
+      openWorkspaceFile: (ws, path) =>
+        op(async () => {
+          const open = get().files.find((f) => f.path === path);
+          if (open) {
+            get().setActive(open.id);
+            return true;
+          }
+          addPathTab(path, await ws.read(path));
+          return true;
+        }),
+
+      saveActive: (ws, as) =>
+        op(async () => {
+          const { files, activeId } = get();
+          const f = files.find((x) => x.id === activeId);
+          if (!f) return false;
+          const text = f.text; // lo escrito mientras se guarda queda como modificado
+          if (f.path !== undefined) {
+            await ws.write(f.path, text);
+            patchTab(f.id, { diskText: text });
+            return true;
+          }
+          if (!as) throw new Error('Falta el nombre del archivo');
+          await ws.create(as);
+          try {
+            await ws.write(as, text);
+          } catch (e) {
+            await ws.remove(as).catch(() => undefined); // no dejar un archivo vacío huérfano
+            throw e;
+          }
+          patchTab(f.id, { path: as, name: baseName(as), diskText: text });
+          await refresh(ws);
+          return true;
+        }),
+
+      createFile: (ws, path) =>
+        op(async () => {
+          await ws.create(path);
+          addPathTab(path, '');
+          await refresh(ws);
+          return true;
+        }),
+
+      renameFile: (ws, from, to) =>
+        op(async () => {
+          await ws.rename(from, to);
+          set({ files: get().files.map((f) => (f.path === from ? { ...f, path: to, name: baseName(to) } : f)) });
+          await refresh(ws);
+          return true;
+        }),
+
+      deleteFile: (ws, path) =>
+        op(async () => {
+          await ws.remove(path);
+          const tab = get().files.find((f) => f.path === path);
+          if (tab) get().closeFile(tab.id);
+          await refresh(ws);
+          return true;
+        }),
 
       startExercise(id) {
         const ex = getExercise(id);
