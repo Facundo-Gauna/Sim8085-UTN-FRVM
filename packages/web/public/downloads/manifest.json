@@ -1,0 +1,66 @@
+{
+  "version": "0.1.1",
+  "generated": "2026-11-17T02:04:11.066Z",
+  "files": [
+    {
+      "os": "linux",
+      "kind": "appimage",
+      "label": "Linux · AppImage",
+      "file": "Sim8085_0.1.1_amd64.AppImage",
+      "url": "https://github.com/Facundo-Gauna/Sim8085-UTN-FRVM/releases/download/v0.1.1/Sim8085_0.1.1_amd64.AppImage",
+      "size": 81656312,
+      "sha256": "23b8f423dc4031a852e4e90c2aa00c994d16e52c0b8300a86bd70fd6c8f6d8af",
+      "version": "0.1.1"
+    },
+    {
+      "os": "linux",
+      "kind": "deb",
+      "label": "Linux · paquete .deb",
+      "file": "Sim8085_0.1.1_amd64.deb",
+      "url": "https://github.com/Facundo-Gauna/Sim8085-UTN-FRVM/releases/download/v0.1.1/Sim8085_0.1.1_amd64.deb",
+      "size": 3091450,
+      "sha256": "383f8adb63c36f0bdd7cc8f9e7d3dcccae3e86729dffdefcd0085402b0caf83e",
+      "version": "0.1.1"
+    },
+    {
+      "os": "linux",
+      "kind": "rpm",
+      "label": "Linux · paquete .rpm",
+      "file": "Sim8085-0.1.1-1.x86_64.rpm",
+      "url": "https://github.com/Facundo-Gauna/Sim8085-UTN-FRVM/releases/download/v0.1.1/Sim8085-0.1.1-1.x86_64.rpm",
+      "size": 3099178,
+      "sha256": "0bc6a28109249b439a4a0435ccfae55e856187d32776d24a5293e961f3a0f350",
+      "version": "0.1.1"
+    },
+    {
+      "os": "windows",
+      "kind": "nsis",
+      "label": "Windows · instalador (.exe)",
+      "file": "Sim8085_0.1.1_x64-setup.exe",
+      "url": "https://github.com/Facundo-Gauna/Sim8085-UTN-FRVM/releases/download/v0.1.1/Sim8085_0.1.1_x64-setup.exe",
+      "size": 2829683,
+      "sha256": "ecab0f618fc57623436c31c903e718ea9a0c4dd75dda0aa891e132b0fa68bb12",
+      "version": "0.1.1"
+    },
+    {
+      "os": "windows",
+      "kind": "portable",
+      "label": "Windows · portable (.zip, sin instalar)",
+      "file": "Sim8085_0.1.1_x64-portable.zip",
+      "url": "https://github.com/Facundo-Gauna/Sim8085-UTN-FRVM/releases/download/v0.1.1/Sim8085_0.1.1_x64-portable.zip",
+      "size": 3363526,
+      "sha256": "02c88c562063e5720654cc352abfb3973854fbf43d58d69140db4bfec16f78fe",
+      "version": "0.1.1"
+    },
+    {
+      "os": "windows",
+      "kind": "msi",
+      "label": "Windows · instalador (.msi)",
+      "file": "Sim8085_0.1.1_x64_en-US.msi",
+      "url": "https://github.com/Facundo-Gauna/Sim8085-UTN-FRVM/releases/download/v0.1.1/Sim8085_0.1.1_x64_en-US.msi",
+      "size": 3592192,
+      "sha256": "eee3857c56bb57349da1b70cb295bb5f3dbda4148caaabda17a81d379efc7c5c",
+      "version": "0.1.1"
+    }
+  ]
+}

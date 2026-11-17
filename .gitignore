@@ -5,4 +5,5 @@ target
 .superpowers/
 .impeccable/
 packages/desktop/src-tauri/gen/
-packages/web/public/downloads/
+packages/web/public/downloads/*
+!packages/web/public/downloads/manifest.json
