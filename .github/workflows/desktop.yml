@@ -1,0 +1,42 @@
+# Compila la app de escritorio en Linux y Windows y deja los instaladores como artefactos.
+# Para publicarlos en la web: bajar los artefactos, correr `node packages/desktop/scripts/collect-downloads.mjs`
+# (o usar --base-url si se alojan fuera) y desplegar.
+name: desktop
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Dependencias de Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev patchelf
+      - run: npm ci
+      - name: Pruebas
+        run: |
+          npm test -w @sim8085/core
+          npm test -w @sim8085/web
+          node --test packages/desktop/scripts
+          cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml
+      - run: npm run build -w @sim8085/desktop
+      - run: node packages/desktop/scripts/collect-downloads.mjs --out dist-downloads
+      - uses: actions/upload-artifact@v4
+        with:
+          name: instaladores-${{ matrix.os }}
+          path: dist-downloads/*
