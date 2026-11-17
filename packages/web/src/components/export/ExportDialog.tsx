@@ -87,9 +87,13 @@ function Dialog({ onClose, fileService }: Omit<ExportDialogProps, 'open'>) {
     setSaveError('');
     try {
       const r = kind === 'assembler' ? await renderAssemblerPdf(rows, header) : await renderTracePdf(trace?.rows ?? [], header);
-      const name = safeFileName(exercise, kind);
-      await fileService.saveBinary(name, r.bytes, 'application/pdf');
-      defaultSession.setState({ status: { kind: 'info', text: `PDF guardado: ${name}` } });
+      const wanted = safeFileName(exercise, kind);
+      // El escritorio devuelve el nombre final (puede llevar " (2)"); '' = el usuario canceló "Guardar como".
+      const saved = await fileService.saveBinary(wanted, r.bytes, 'application/pdf');
+      if (saved === '') return;
+      const name = saved || wanted;
+      const where = defaultSession.getState().workspace ? 'PDF guardado en la carpeta' : 'PDF guardado';
+      defaultSession.setState({ status: { kind: 'info', text: `${where}: ${name}` } });
     } catch {
       setSaveError('No se pudo guardar el PDF. Probá de nuevo.');
     } finally {

@@ -114,4 +114,33 @@ describe('ExportDialog', () => {
     expect(await screen.findByText('Hoja 1 de 1')).toBeTruthy();
     expect(download().disabled).toBe(false);
   });
+
+  it('con carpeta de trabajo abierta dice dónde quedó y usa el nombre final que devuelve el servicio', async () => {
+    const fs = fake();
+    fs.binary.mockResolvedValueOnce('ej1-assembler (2).pdf');
+    act(() => defaultSession.setState({ workspace: { name: 'asm', tree: [] } }));
+    open(undefined, fs);
+    type('Ejercicio', 'ej1');
+    await act(async () => void fireEvent.click(download()));
+    expect(s().status).toEqual({ kind: 'info', text: 'PDF guardado en la carpeta: ej1-assembler (2).pdf' });
+  });
+
+  it('sin carpeta pero con nombre final devuelto usa ese nombre', async () => {
+    const fs = fake();
+    fs.binary.mockResolvedValueOnce('elegido.pdf');
+    open(undefined, fs);
+    await act(async () => void fireEvent.click(download()));
+    expect(s().status).toEqual({ kind: 'info', text: 'PDF guardado: elegido.pdf' });
+  });
+
+  it('cancelar el cuadro "Guardar como" (nombre vacío) no muestra éxito ni error', async () => {
+    const fs = fake();
+    fs.binary.mockResolvedValueOnce('');
+    const { onClose } = open(undefined, fs);
+    act(() => defaultSession.setState({ status: null }));
+    await act(async () => void fireEvent.click(download()));
+    expect(s().status).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+  });
 });
