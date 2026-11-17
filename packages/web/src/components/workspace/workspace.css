@@ -1,0 +1,29 @@
+/* Carpeta de trabajo (escritorio): solo tokens de MASTER; el archivo activo lleva aria-current y marca de borde. */
+.work.with-files { grid-template-columns: 220px minmax(0, 3fr) minmax(400px, 2fr); }
+.work.with-files.files-collapsed { grid-template-columns: 44px minmax(0, 3fr) minmax(400px, 2fr); }
+.ws-panel { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
+.ws-head { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.ws-head .caps { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-tools { display: inline-flex; gap: 2px; flex: none; }
+.ws-panel.collapsed .ws-head { justify-content: center; padding: 0; }
+.ws-body { overflow: auto; padding: 4px 0; min-height: 0; }
+.ws-tree, .ws-tree ul { list-style: none; margin: 0; padding: 0; }
+.ws-item { outline-offset: -2px; }
+.ws-row { display: flex; align-items: center; gap: 4px; padding: 2px 8px; border-left: 3px solid transparent; font: 400 13px/20px var(--sans); color: var(--ink); cursor: pointer; white-space: nowrap; }
+.ws-item:focus-visible > .ws-row, .ws-row:hover { background: var(--surface-2); }
+.ws-item[aria-current="true"] > .ws-row { border-left-color: var(--accent); background: var(--surface-2); font-weight: 600; }
+.ws-file-icon { margin-left: 18px; color: var(--ink-muted); }
+.ws-empty { margin: 8px 12px; font: 400 13px/20px var(--sans); color: var(--ink-muted); }
+.ws-body .field-error { margin: 4px 12px; }
+
+.ws-scrim { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; background: color-mix(in srgb, var(--ink) 45%, transparent); }
+.ws-dialog { width: min(420px, 100%); padding: 16px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 6px; display: grid; gap: 12px; }
+.ws-dialog h2 { margin: 0; font: 600 16px/24px var(--sans); }
+.ws-dialog p { margin: 0; font: 400 14px/22px var(--sans); }
+.ws-dialog form { display: grid; gap: 8px; }
+.ws-field { display: grid; gap: 2px; font: 500 12px/18px var(--sans); }
+.ws-field input { padding: 4px 8px; border: 1px solid var(--line-strong); border-radius: 4px; background: var(--surface); color: var(--ink); font: 400 14px/20px var(--mono); }
+.ws-field input[aria-invalid="true"] { border-color: var(--danger); }
+.ws-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.btn.danger { border-color: var(--danger); color: var(--danger); }
+.btn.danger:hover { background: var(--surface-2); }

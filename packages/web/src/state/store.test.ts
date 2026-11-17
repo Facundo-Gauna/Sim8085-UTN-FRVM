@@ -849,6 +849,19 @@ describe('carpeta de trabajo', () => {
     expect(st.getState().workspace!.tree.some((n) => n.path === 'nuevo.asm')).toBe(true);
   });
 
+  it('guardar como sobre un archivo con ruta crea la copia, reapunta la pestaña y no toca el original', async () => {
+    const { ws, st } = await open();
+    await st.getState().openWorkspaceFile(ws, 'a.asm');
+    const id = st.getState().activeId;
+    st.getState().setText(id, 'CAMBIADO');
+    expect(await st.getState().saveActive(ws, 'copia.asm')).toBe(true);
+    expect(ws.files.get('copia.asm')).toBe('CAMBIADO');
+    expect(ws.files.get('a.asm')).toBe('NOP\nHLT\n');
+    expect(tabs(st).find((f) => f.id === id)).toMatchObject({ path: 'copia.asm', name: 'copia.asm', diskText: 'CAMBIADO' });
+    // con el mismo nombre que ya tiene es un guardado común
+    expect(await st.getState().saveActive(ws, 'copia.asm')).toBe(true);
+  });
+
   it('sin nombre, o con un nombre que ya existe, no guarda ni pisa', async () => {
     const { ws, st } = await open();
     st.getState().newFile();

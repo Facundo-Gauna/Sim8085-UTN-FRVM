@@ -113,7 +113,7 @@ export interface Session {
   openFolder(ws: WorkspaceService): Promise<boolean>;
   refreshTree(ws: WorkspaceService): Promise<boolean>;
   openWorkspaceFile(ws: WorkspaceService, path: string): Promise<boolean>;
-  /** Guarda el archivo activo; sin ruta hace falta `as` (guardar como). */
+  /** Guarda el archivo activo; sin ruta hace falta `as`, y con `as` distinto de su ruta es "guardar como" (copia y reapunta la pestaña). */
   saveActive(ws: WorkspaceService, as?: string): Promise<boolean>;
   createFile(ws: WorkspaceService, path: string): Promise<boolean>;
   renameFile(ws: WorkspaceService, from: string, to: string): Promise<boolean>;
@@ -280,7 +280,7 @@ export function createSession(): StoreApi<Session> {
           const f = files.find((x) => x.id === activeId);
           if (!f) return false;
           const text = f.text; // lo escrito mientras se guarda queda como modificado
-          if (f.path !== undefined) {
+          if (f.path !== undefined && (as === undefined || as === f.path)) {
             await ws.write(f.path, text);
             patchTab(f.id, { diskText: text });
             return true;

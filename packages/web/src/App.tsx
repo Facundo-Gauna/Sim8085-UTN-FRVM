@@ -9,6 +9,10 @@ import { useEffect, useRef, useState } from 'react';
 import { AArrowDown, AArrowUp } from 'lucide-react';
 import { Editor } from './editor/Editor';
 import { Announcer } from './components/Announcer';
+import { ConfirmDelete } from './components/workspace/ConfirmDelete';
+import { FileTree } from './components/workspace/FileTree';
+import { NameDialog } from './components/workspace/NameDialog';
+import { baseOf, dirOf, normalizeName } from './components/workspace/names';
 import { ExerciseBar } from './components/exercises/ExerciseBar';
 import { ExercisesPage } from './components/exercises/ExercisesPage';
 import { ToolboxPage } from './components/toolbox/ToolboxPage';
@@ -78,6 +82,15 @@ function Simulator({ fileService, visible }: { fileService: FileService; visible
   const exportRef = useRef<HTMLButtonElement>(null);
   const [exporting, setExporting] = useState(false);
 
+  // Carpeta de trabajo (solo escritorio): diálogos y panel.
+  const ws = fileService.workspace;
+  const workspace = useSession((s) => s.workspace);
+  const [filesCollapsed, setFilesCollapsed] = useState(false);
+  const [nameDialog, setNameDialog] = useState<
+    null | { mode: 'new'; dir: string } | { mode: 'rename'; path: string } | { mode: 'saveAs' }
+  >(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
   // beforeunload: avisa mientras haya archivos con contenido (lee siempre los últimos).
   const filesRef = useRef(files);
   filesRef.current = files;
@@ -100,14 +113,48 @@ function Simulator({ fileService, visible }: { fileService: FileService; visible
     session().reset();
   };
 
+  /** Abre el cuadro de carpeta; true si quedó una carpeta abierta (la anterior o la nueva). */
+  const ensureFolder = async (): Promise<boolean> => {
+    if (!ws) return false;
+    if (session().workspace) return true;
+    return session().openFolder(ws);
+  };
+  const activeTab = () => session().files.find((f) => f.id === session().activeId);
+  const saveCurrent = async () => {
+    if (!ws) return downloadActive(fileService);
+    if (!(await ensureFolder())) return;
+    if (activeTab()?.path !== undefined) await session().saveActive(ws);
+    else setNameDialog({ mode: 'saveAs' });
+  };
+  const saveAs = async () => {
+    if (await ensureFolder()) setNameDialog({ mode: 'saveAs' });
+  };
+
   useShortcuts({
     assemble,
     toggleRun,
     step,
     back,
-    open: () => openFromDisk(fileService),
-    save: () => downloadActive(fileService),
+    open: () => (ws ? void session().openFolder(ws) : openFromDisk(fileService)),
+    save: () => void saveCurrent(),
+    saveAs: ws ? () => void saveAs() : undefined,
   }, visible);
+
+  /** Resultado de una operación de disco para el diálogo: '' si salió bien, si no el mensaje. */
+  const result = (ok: boolean) => (ok ? '' : session().fileOpError || 'No se pudo completar la operación');
+  const submitName = async (raw: string): Promise<string> => {
+    if (!ws || !nameDialog) return '';
+    const r = normalizeName(raw, { allowDirs: nameDialog.mode !== 'rename' });
+    if (!r.ok) return r.error;
+    if (nameDialog.mode === 'new') {
+      return result(await session().createFile(ws, nameDialog.dir ? `${nameDialog.dir}/${r.name}` : r.name));
+    }
+    if (nameDialog.mode === 'rename') {
+      const dir = dirOf(nameDialog.path);
+      return result(await session().renameFile(ws, nameDialog.path, dir ? `${dir}/${r.name}` : r.name));
+    }
+    return result(await session().saveActive(ws, r.name));
+  };
 
   const afterPause = (cont: boolean) => {
     if (cont) {
@@ -152,11 +199,22 @@ function Simulator({ fileService, visible }: { fileService: FileService; visible
           fileService={fileService}
           onExport={() => setExporting(true)}
           exportRef={exportRef}
+          onOpenFolder={ws ? () => void session().openFolder(ws) : undefined}
         />
         <Notice />
         <ExerciseBar />
         {pausePrompt && <PauseBanner onContinue={() => afterPause(true)} onStop={() => afterPause(false)} />}
-        <main className="work">
+        <main className={`work${ws && workspace ? ` with-files${filesCollapsed ? ' files-collapsed' : ''}` : ''}`}>
+          {ws && workspace && (
+            <FileTree
+              ws={ws}
+              collapsed={filesCollapsed}
+              onToggle={() => setFilesCollapsed((c) => !c)}
+              onNew={(dir) => setNameDialog({ mode: 'new', dir })}
+              onRename={(path) => setNameDialog({ mode: 'rename', path })}
+              onDelete={setDeleting}
+            />
+          )}
           <div className="left">
             <section className="panel editor-panel" aria-label="Editor">
               <header className="panel-h">
@@ -210,6 +268,32 @@ function Simulator({ fileService, visible }: { fileService: FileService; visible
         onClose={() => setExporting(false)}
         fileService={fileService}
       />
+      {nameDialog && (
+        <NameDialog
+          title={nameDialog.mode === 'new' ? 'Nuevo archivo' : nameDialog.mode === 'rename' ? 'Renombrar archivo' : 'Guardar como'}
+          initial={
+            nameDialog.mode === 'new'
+              ? nameDialog.dir
+                ? `${nameDialog.dir}/`
+                : ''
+              : nameDialog.mode === 'rename'
+                ? baseOf(nameDialog.path)
+                : (activeTab()?.path ?? activeTab()?.name ?? '')
+          }
+          onSubmit={submitName}
+          onClose={() => setNameDialog(null)}
+        />
+      )}
+      {deleting && ws && (
+        <ConfirmDelete
+          name={baseOf(deleting)}
+          onClose={() => setDeleting(null)}
+          onConfirm={() => {
+            void session().deleteFile(ws, deleting);
+            setDeleting(null);
+          }}
+        />
+      )}
       <Announcer />
     </>
   );
