@@ -5,7 +5,8 @@ const KINDS = {
   deb: { os: 'linux', label: 'Linux · paquete .deb', order: 1 },
   rpm: { os: 'linux', label: 'Linux · paquete .rpm', order: 2 },
   nsis: { os: 'windows', label: 'Windows · instalador (.exe)', order: 3 },
-  msi: { os: 'windows', label: 'Windows · instalador (.msi)', order: 4 },
+  portable: { os: 'windows', label: 'Windows · portable (.zip, sin instalar)', order: 4 },
+  msi: { os: 'windows', label: 'Windows · instalador (.msi)', order: 5 },
 };
 
 /** Tipo de instalador por nombre de archivo, o null si no es un instalador (firmas, tar.gz, etc.). */
@@ -15,6 +16,7 @@ export function classify(fileName) {
   else if (/\.deb$/i.test(fileName)) kind = 'deb';
   else if (/\.rpm$/i.test(fileName)) kind = 'rpm';
   else if (/-setup\.exe$/i.test(fileName)) kind = 'nsis';
+  else if (/-portable\.zip$/i.test(fileName)) kind = 'portable';
   else if (/\.msi$/i.test(fileName)) kind = 'msi';
   return kind ? { os: KINDS[kind].os, kind } : null;
 }

@@ -17,7 +17,8 @@ test('classify reconoce los instaladores de Tauri y descarta el resto', () => {
   assert.deepEqual(classify('Sim8085-0.1.0-1.x86_64.rpm'), { os: 'linux', kind: 'rpm' });
   assert.deepEqual(classify('Sim8085_0.1.0_x64-setup.exe'), { os: 'windows', kind: 'nsis' });
   assert.deepEqual(classify('Sim8085_0.1.0_x64_en-US.msi'), { os: 'windows', kind: 'msi' });
-  for (const no of ['Sim8085.AppImage.sig', 'x.tar.gz', 'x.exe', 'README.md', 'x.deb.txt']) assert.equal(classify(no), null, no);
+  assert.deepEqual(classify('Sim8085_0.1.0_x64-portable.zip'), { os: 'windows', kind: 'portable' });
+  for (const no of ['Sim8085.AppImage.sig', 'x.tar.gz', 'x.exe', 'x.zip', 'README.md', 'x.deb.txt']) assert.equal(classify(no), null, no);
 });
 
 test('buildManifest ordena (Linux primero), arma las URL y es determinista', () => {

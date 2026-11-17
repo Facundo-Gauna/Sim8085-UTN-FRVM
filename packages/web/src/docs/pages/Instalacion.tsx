@@ -36,8 +36,13 @@ export function Instalacion() {
           usan .deb; Fedora y openSUSE, .rpm).
         </li>
         <li>
-          <strong>Windows:</strong> ejecutá el instalador y seguí los pasos. Como el instalador no está firmado, es
-          posible que SmartScreen muestre un aviso: elegí «Más información» y después «Ejecutar de todos modos».
+          <strong>Windows, instalador (.exe):</strong> ejecutalo y seguí los pasos. Como no está firmado, es posible que
+          SmartScreen muestre un aviso: elegí «Más información» y después «Ejecutar de todos modos».
+        </li>
+        <li>
+          <strong>Windows, portable (.zip):</strong> no se instala. Descomprimí la carpeta completa donde quieras (por
+          ejemplo en un pendrive) y abrí <code>Sim8085.exe</code>. Necesita Microsoft Edge WebView2, que ya viene con
+          Windows 11 y con Windows 10 actualizado.
         </li>
       </ul>
       <h2>Privacidad</h2>

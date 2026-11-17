@@ -1,7 +1,7 @@
 /** Manifiesto de descargas de la app de escritorio (lo genera packages/desktop/scripts/collect-downloads.mjs). */
 
 export type DownloadOs = 'linux' | 'windows';
-const KINDS = ['appimage', 'deb', 'rpm', 'nsis', 'msi'] as const;
+const KINDS = ['appimage', 'deb', 'rpm', 'nsis', 'portable', 'msi'] as const;
 export type DownloadKind = (typeof KINDS)[number];
 
 export interface DownloadEntry {

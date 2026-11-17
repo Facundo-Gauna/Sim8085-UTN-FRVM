@@ -35,6 +35,16 @@ jobs:
           node --test packages/desktop/scripts
           cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml
       - run: npm run build -w @sim8085/desktop
+      - name: Zip portable de Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $v = (Get-Content packages/desktop/src-tauri/tauri.conf.json | ConvertFrom-Json).version
+          $rel = 'packages/desktop/src-tauri/target/release'
+          $dir = New-Item -ItemType Directory -Path "$rel/bundle/portable/Sim8085"
+          Copy-Item "$rel/sim8085-desktop.exe" "$dir/Sim8085.exe"
+          Set-Content "$dir/LEEME.txt" "Sim8085: abrí Sim8085.exe. Necesita Microsoft Edge WebView2 (viene con Windows 11 y Windows 10 actualizado)."
+          Compress-Archive -Path $dir -DestinationPath "$rel/bundle/portable/Sim8085_${v}_x64-portable.zip"
       - run: node packages/desktop/scripts/collect-downloads.mjs --out dist-downloads
       - uses: actions/upload-artifact@v4
         with:
