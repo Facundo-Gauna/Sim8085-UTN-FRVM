@@ -32,6 +32,8 @@ interface HistoryEntry {
   tStates: number;
   stepCount: number;
   executedInstructions: number;
+  /** Lo que hizo el paso (dirección, instrucción, lecturas/escrituras). */
+  info: StepInfo;
 }
 
 const HISTORY_LIMIT = 10_000;
@@ -258,6 +260,15 @@ export class Machine {
     return out;
   }
 
+  /**
+   * El último paso ejecutado (cima del historial): dirección de la instrucción,
+   * su definición y la memoria que leyó/escribió. null antes del primer paso,
+   * tras reset() o tras editar la memoria.
+   */
+  lastStep(): StepInfo | null {
+    return this.history[this.history.length - 1]?.info ?? null;
+  }
+
   /** Byte de la imagen del programa en `addr` (0 si el programa no lo usa). */
   private imageByte(addr: number): number {
     return (this.program.memory.get(addr) ?? 0) & 0xff;
@@ -298,6 +309,7 @@ export class Machine {
       tStates: this._tStates,
       stepCount: this._stepCount,
       executedInstructions: this._executed,
+      info,
     });
     if (this.history.length > HISTORY_LIMIT) this.history.shift();
     if (info.memRead !== undefined) this.touchedMemory.add(info.memRead);

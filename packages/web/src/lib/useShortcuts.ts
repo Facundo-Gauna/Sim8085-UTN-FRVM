@@ -1,6 +1,7 @@
 /**
  * Atajos globales (keydown en window):
  *   F5 Ensamblar · F8 Ejecutar/Detener · F10 Paso · Shift+F10 Atrás
+ *   Ctrl+Shift+F Solo editor / volver
  *   Ctrl/Cmd+O Abrir · Ctrl/Cmd+S Descargar (en escritorio: abrir carpeta / guardar) · Ctrl+Shift+S Guardar como (solo escritorio)
  * F9 (punto de corte) lo maneja el editor: acá no se toca.
  * Todos funcionan en cualquier lugar (editor, campos de texto) y siempre hacen
@@ -17,6 +18,8 @@ export interface ShortcutHandlers {
   save(): void;
   /** Ctrl+Shift+S: solo en la app de escritorio. */
   saveAs?(): void;
+  /** Ctrl+Shift+F: editor a pantalla completa (dentro del Simulador). */
+  focus?(): void;
 }
 
 /** `enabled` en false (otra sección visible) ignora todos los atajos. */
@@ -40,6 +43,7 @@ export function useShortcuts(handlers: ShortcutHandlers, enabled = true): void {
         if (k === 'o') run = h.open;
         else if (k === 's') run = h.save;
       } else if (mod && !e.altKey && e.shiftKey && e.key.toLowerCase() === 's' && h.saveAs) run = h.saveAs;
+      else if (mod && !e.altKey && e.shiftKey && e.key.toLowerCase() === 'f' && h.focus) run = h.focus;
       if (!run) return;
       e.preventDefault();
       if (e.repeat && (e.key === 'F5' || e.key === 'F8')) return;

@@ -581,3 +581,23 @@ describe('Machine: programa con errores (M1)', () => {
     );
   });
 });
+
+describe('lastStep', () => {
+  it('es null antes del primer paso y apunta a la instrucción recién ejecutada', () => {
+    const m = new Machine(assemble('LDA 0040H\nCMA\nHLT', { start: 0x2000 }));
+    m.setMemory(0x40, 0x3a);
+    expect(m.lastStep()).toBeNull();
+    m.step();
+    const s = m.lastStep()!;
+    expect(s.pc).toBe(0x2000);
+    expect(s.instr?.mnemonic).toBe('LDA');
+    expect(s.memRead).toBe(0x40);
+    expect(m.cpu.A).toBe(0x3a);
+    m.step();
+    expect(m.lastStep()!.pc).toBe(0x2003);
+    m.back();
+    expect(m.lastStep()!.pc).toBe(0x2000);
+    m.reset();
+    expect(m.lastStep()).toBeNull();
+  });
+});

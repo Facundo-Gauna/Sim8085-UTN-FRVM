@@ -45,7 +45,18 @@ class SpacerMarker extends GutterMarker {
   }
 }
 
+class ExecutedMarker extends GutterMarker {
+  toDOM() {
+    const el = document.createElement('span');
+    el.className = 'cm-sim-ex-marker';
+    el.title = 'Instrucción recién ejecutada';
+    el.textContent = '✓';
+    return el;
+  }
+}
+
 const bpMarker = new BreakpointMarker();
+const exMarker = new ExecutedMarker();
 const pcMarker = new PcMarker();
 const bpSpacer = new SpacerMarker('');
 const pcSpacer = new SpacerMarker('▶');
@@ -102,7 +113,18 @@ export function debugGutters(onToggle: ((line: number) => void) | undefined): Ex
     lineNumbers(),
     gutter({
       class: 'cm-sim-pc-gutter',
-      markers: (view) => markersOf(view, 'current', pcMarker),
+      markers: (view) => {
+        // ▶ en la próxima; ✓ en la recién ejecutada (si coinciden, gana ▶).
+        const { doc } = view.state;
+        const specs = decorationSpecs(view.state);
+        const cur = specs.find((s) => s.kind === 'current')?.line;
+        const ex = specs.find((s) => s.kind === 'executed')?.line;
+        const ranges = [];
+        if (ex !== undefined && ex !== cur) ranges.push({ line: ex, m: exMarker });
+        if (cur !== undefined) ranges.push({ line: cur, m: pcMarker });
+        ranges.sort((a, b) => a.line - b.line);
+        return RangeSet.of(ranges.map((r) => r.m.range(doc.line(r.line).from)));
+      },
       initialSpacer: () => pcSpacer,
     }),
     keymap.of([{ key: 'F9', run: (view) => toggleAt(view, view.state.selection.main.head) }]),

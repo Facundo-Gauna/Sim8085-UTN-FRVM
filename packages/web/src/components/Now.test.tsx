@@ -27,6 +27,17 @@ describe('Now', () => {
     expect(screen.getByText('No modifica banderas')).toBeTruthy();
   });
 
+  it('separa la recién ejecutada (con sus efectos) de la próxima', () => {
+    act(() => s().assembleActive());
+    const { container } = render(<Now />);
+    expect(container.textContent).toMatch(/Ninguna todavía/);
+    stepOnce();
+    expect(container.querySelector('.now-last')?.textContent).toContain('LDA 0040H');
+    expect(screen.getByText('A: 00h → 3Ah')).toBeTruthy();
+    expect(screen.getByText('leyó M[0040h] = 3Ah')).toBeTruthy();
+    expect(container.querySelector('.now-next')?.textContent).toContain('CMA');
+  });
+
   it('una instrucción condicional muestra los dos tiempos', () => {
     loadProgram('JNZ 2000H\nHLT\n');
     render(<Now />);

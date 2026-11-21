@@ -39,10 +39,17 @@ export function UsarSimulador() {
       </p>
       <h2>Qué mirar en cada paso</h2>
       <p>
-        La línea actual se marca en el editor, y el panel <strong>Ahora</strong> explica en lenguaje simple la
-        instrucción que sigue. En los paneles de registros, banderas y memoria, lo que cambió se resalta con color y un
+        En el editor, la instrucción <strong>recién ejecutada</strong> se marca con <code>✓</code> y fondo resaltado, y
+        la <strong>próxima</strong> (la que está en el PC) con <code>▶</code>. Al ensamblar todavía no se ejecutó
+        nada: los registros muestran el estado inicial y el primer Paso ejecuta la primera instrucción. El panel{' '}
+        <strong>Ahora</strong> muestra las dos: qué cambió con la recién ejecutada (por ejemplo{' '}
+        <code>A: 00h → 3Ah</code>) y qué hará la próxima. En los paneles de registros, banderas y memoria, lo que cambió se resalta con color y un
         punto <code>•</code>; el valor anterior aparece al pasar el mouse. Con el selector de la barra de estado cambiás
         todos los valores entre hexadecimal, decimal y binario.
+      </p>
+      <p>
+        Para escribir cómodo, los botones de la cabecera del editor cambian su tamaño: <strong>Equilibrado</strong>,{' '}
+        <strong>Editor amplio</strong> o <strong>Solo editor</strong> (también con <kbd>Ctrl+Shift+F</kbd>).
       </p>
       <h2>Memoria y datos</h2>
       <p>

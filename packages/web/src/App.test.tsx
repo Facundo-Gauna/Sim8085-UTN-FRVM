@@ -508,3 +508,17 @@ describe('App: celular', () => {
     expect(rule![1]).not.toMatch(/min-width/);
   });
 });
+
+describe('App: tamaño del editor', () => {
+  it('"Solo editor" oculta registros, banderas y memoria; "Equilibrado" los vuelve a mostrar', () => {
+    localStorage.removeItem('sim8085.layout');
+    render(<App />);
+    expect(screen.getByRole('region', { name: 'Registros' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('radio', { name: 'Solo editor' }));
+    expect(screen.queryByRole('region', { name: 'Registros' })).toBeNull();
+    expect(localStorage.getItem('sim8085.layout')).toBe('foco');
+    fireEvent.click(screen.getByRole('radio', { name: 'Equilibrado' }));
+    expect(screen.getByRole('region', { name: 'Registros' })).toBeTruthy();
+  });
+});
+

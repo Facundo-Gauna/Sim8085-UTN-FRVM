@@ -74,6 +74,40 @@
   background: color-mix(in srgb, var(--current) 9%, transparent);
   box-shadow: inset 3px 0 0 var(--current);
 }
+/* Recién ejecutada: el mismo resaltador que los registros que cambió (§2.3), con su ✓ y etiqueta. */
+.editor .cm-line.cm-sim-executed {
+  background: color-mix(in srgb, var(--changed-bg) 70%, transparent);
+  box-shadow: inset 3px 0 0 var(--ink-muted);
+}
+.editor .cm-line.cm-sim-executed.cm-sim-current {
+  box-shadow: inset 3px 0 0 var(--current);
+}
+.editor .cm-sim-ex-marker {
+  color: var(--ink-muted);
+}
+/* Etiqueta al final de la línea: "✓ recién ejecutada" / "▶ próxima". */
+.editor .cm-sim-tag {
+  display: inline-block;
+  margin-left: 14px;
+  padding: 0 6px;
+  border-radius: 3px;
+  font: 600 10px/16px var(--sans);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+  white-space: nowrap;
+  user-select: none;
+}
+.editor .cm-sim-tag-current,
+.editor .cm-sim-tag-both {
+  color: var(--current);
+  border: 1px solid color-mix(in srgb, var(--current) 55%, transparent);
+}
+.editor .cm-sim-tag-executed {
+  color: var(--ink);
+  background: var(--changed-bg);
+  border: 1px solid color-mix(in srgb, var(--ink) 25%, transparent);
+}
 
 /* Errores (ondulado) y advertencias del ensamblado; el mensaje va en el title. */
 .editor .cm-sim-error {

@@ -1,6 +1,8 @@
 /* Carpeta de trabajo (escritorio): solo tokens de MASTER; el archivo activo lleva aria-current y marca de borde. */
-.work.with-files { grid-template-columns: 220px minmax(0, 3fr) minmax(400px, 2fr); }
-.work.with-files.files-collapsed { grid-template-columns: 44px minmax(0, 3fr) minmax(400px, 2fr); }
+.work.with-files { grid-template-columns: 220px minmax(0, 3fr) var(--right-col); }
+.work.with-files.layout-foco { grid-template-columns: 220px minmax(0, 1fr); }
+.work.with-files.files-collapsed { grid-template-columns: 44px minmax(0, 3fr) var(--right-col); }
+.work.with-files.files-collapsed.layout-foco { grid-template-columns: 44px minmax(0, 1fr); }
 .ws-panel { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
 .ws-head { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
 .ws-head .caps { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

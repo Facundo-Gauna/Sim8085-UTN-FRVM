@@ -32,6 +32,21 @@ const SOLUTIONS: Record<string, string> = {
     'LXI H, 3000H', 'LXI D, 3100H', 'MVI C, 08H',
     'LP: MOV A, M', 'STAX D', 'INX H', 'INX D', 'DCR C', 'JNZ LP', 'HLT',
   ].join('\n'),
+  'basico-restar': 'LDA 3001H\nMOV B, A\nLDA 3000H\nSUB B\nSTA 3002H\nHLT',
+  'basico-encender': 'LDA 3000H\nORI 81H\nSTA 3001H\nHLT',
+  'basico-nibbles': 'LDA 3000H\nRLC\nRLC\nRLC\nRLC\nSTA 3001H\nHLT',
+  'basico-complemento2': 'LDA 3000H\nCMA\nINR A\nSTA 3001H\nHLT',
+  'basico-mitad': 'LDA 3000H\nORA A\nRAR\nSTA 3001H\nHLT',
+  'inter-suma16': 'LHLD 3000H\nXCHG\nLHLD 3002H\nDAD D\nSHLD 3004H\nHLT',
+  'inter-signo': 'LDA 3000H\nORA A\nMVI B, 00H\nJZ FIN\nMVI B, 01H\nJP FIN\nMVI B, 0FFH\nFIN: MOV A, B\nSTA 3001H\nHLT',
+  'inter-multiplicar': 'LDA 3001H\nMOV C, A\nLDA 3000H\nMOV B, A\nXRA A\nLP: INR C\nDCR C\nJZ FIN\nADD B\nDCR C\nJMP LP\nFIN: STA 3002H\nHLT',
+  'inter-menor': 'LXI H, 3001H\nLDA 3000H\nMOV C, A\nMOV A, M\nLP: DCR C\nJZ FIN\nINX H\nCMP M\nJC LP\nMOV A, M\nJMP LP\nFIN: STA 3100H\nHLT',
+  'inter-contar-ceros': 'LXI H, 3000H\nMVI C, 08H\nMVI B, 00H\nLP: MOV A, M\nORA A\nJNZ SK\nINR B\nSK: INX H\nDCR C\nJNZ LP\nMOV A, B\nSTA 3100H\nHLT',
+  'inter-mayusculas': 'LXI H, 3000H\nMVI C, 08H\nLP: MOV A, M\nCPI 61H\nJC SK\nCPI 7BH\nJNC SK\nSUI 20H\nMOV M, A\nSK: INX H\nDCR C\nJNZ LP\nHLT',
+  'inter-bcd': 'LDA 3000H\nMVI B, 00H\nLP: CPI 0AH\nJC FIN\nSUI 0AH\nINR B\nJMP LP\nFIN: MOV C, A\nMOV A, B\nRLC\nRLC\nRLC\nRLC\nORA C\nSTA 3001H\nHLT',
+  'adic-invertir': 'LXI H, 3000H\nLXI D, 3107H\nMVI C, 08H\nLP: MOV A, M\nSTAX D\nINX H\nDCX D\nDCR C\nJNZ LP\nHLT',
+  'adic-ordenar': 'MVI B, 04H\nPASADA: LXI H, 3000H\nMVI C, 04H\nCOMP: MOV A, M\nINX H\nCMP M\nJC SIG\nJZ SIG\nMOV D, M\nMOV M, A\nDCX H\nMOV M, D\nINX H\nSIG: DCR C\nJNZ COMP\nDCR B\nJNZ PASADA\nHLT',
+  'adic-fibonacci': 'LDA 3000H\nMOV C, A\nLXI H, 3001H\nMVI D, 00H\nMVI E, 01H\nLP: MOV M, E\nINX H\nMOV A, D\nADD E\nMOV D, E\nMOV E, A\nDCR C\nJNZ LP\nHLT',
 };
 const check = (id: string, src: string, start?: number) => {
   const ex = getExercise(id)!;
@@ -46,7 +61,13 @@ describe('catálogo', () => {
     expect(EXERCISES.filter((e) => e.group === 'adicional').length).toBeGreaterThanOrEqual(5);
     expect(getExercise('gtp05-1')).toBeDefined();
     expect(getExercise('x')).toBeUndefined();
-    expect(GROUP_TITLES).toEqual({ basico: 'Básicos', catedra: 'De la cátedra (GTP05)', adicional: 'Adicionales' });
+    expect(GROUP_TITLES).toEqual({
+      basico: 'Básicos',
+      catedra: 'De la cátedra (GTP05)',
+      intermedio: 'Intermedios (saltos y lazos)',
+      adicional: 'Adicionales',
+    });
+    expect(EXERCISES.filter((e) => e.group === 'intermedio').length).toBeGreaterThanOrEqual(5);
   });
 
   it.each(EXERCISES.map((e) => [e.id, e] as const))('%s: invariantes', (_id, ex) => {

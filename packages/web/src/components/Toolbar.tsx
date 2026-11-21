@@ -129,7 +129,7 @@ export function Toolbar(p: ToolbarProps) {
         <Hammer size={16} strokeWidth={1.75} aria-hidden="true" />
         Ensamblar
       </button>
-      <div className="tb-group" role="group" aria-label="Ejecución">
+      <div className="tb-group transport" role="group" aria-label="Ejecución">
         <button
           ref={p.runRef}
           type="button"
@@ -193,27 +193,31 @@ export function Toolbar(p: ToolbarProps) {
           onChange={onSpeed}
         />
       </div>
-      <div className="tb-group" role="group" aria-label="Entrega">
+      <div className="tb-group delivery" role="group" aria-label="Entrega">
         <button
           type="button"
           className="btn"
+          aria-label="Autocompletar observaciones"
           onClick={() => void autofill()}
           disabled={!live}
           title={live ? 'Escribe una observación en las líneas sin comentario' : 'Ensamblá primero (F5) para autocompletar observaciones'}
         >
           <WandSparkles size={16} strokeWidth={1.75} aria-hidden="true" />
-          Autocompletar observaciones
+          <span className="lbl-long">Autocompletar observaciones</span>
+          <span className="lbl-short" aria-hidden="true">Observaciones</span>
         </button>
         <button
           ref={p.exportRef}
           type="button"
           className="btn"
+          aria-label="Exportar PDF"
           onClick={p.onExport}
           disabled={!live}
           title={live ? 'Exportar las hojas de entrega a PDF' : 'Ensamblá primero (F5) para exportar a PDF'}
         >
           <FileDown size={16} strokeWidth={1.75} aria-hidden="true" />
-          Exportar PDF
+          <span className="lbl-long">Exportar PDF</span>
+          <span className="lbl-short" aria-hidden="true">PDF</span>
         </button>
       </div>
     </header>

@@ -15,10 +15,10 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('ExercisesPage', () => {
-  it('lista los tres grupos con los 5 ejercicios de la cátedra', () => {
+  it('lista los cuatro grupos con los 5 ejercicios de la cátedra', () => {
     render(<ExercisesPage />);
     const region = screen.getByRole('region', { name: 'Ejercicios' });
-    for (const g of ['Básicos', 'De la cátedra (GTP05)', 'Adicionales']) {
+    for (const g of ['Básicos', 'De la cátedra (GTP05)', 'Intermedios (saltos y lazos)', 'Adicionales']) {
       expect(within(region).getByRole('heading', { name: g })).toBeTruthy();
     }
     const cat = within(region).getByRole('list', { name: 'De la cátedra (GTP05)' });

@@ -6,7 +6,7 @@
  * el aviso para celulares.
  */
 import { useEffect, useRef, useState } from 'react';
-import { AArrowDown, AArrowUp } from 'lucide-react';
+import { AArrowDown, AArrowUp, Columns2, Maximize2, PanelRightClose } from 'lucide-react';
 import { Editor } from './editor/Editor';
 import { Announcer } from './components/Announcer';
 import { ConfirmDelete } from './components/workspace/ConfirmDelete';
@@ -32,6 +32,7 @@ import { StatusBar } from './components/StatusBar';
 import { Toolbar } from './components/Toolbar';
 import { FONT_MAX, FONT_MIN, useFontSize } from './lib/useFontSize';
 import { useMediaQuery } from './lib/useMediaQuery';
+import { useLayout, type Layout } from './lib/useLayout';
 import { useSection, type Section } from './lib/useSection';
 import { useRunner, type Speed } from './lib/useRunner';
 import { useShortcuts } from './lib/useShortcuts';
@@ -78,6 +79,7 @@ function Simulator({ fileService, visible }: { fileService: FileService; visible
   const [speed, setSpeed] = useState<Speed>(3);
   const runner = useRunner(speed);
   const [fontSize, setFontSize] = useFontSize();
+  const [layout, setLayout] = useLayout();
   const runRef = useRef<HTMLButtonElement>(null);
   const exportRef = useRef<HTMLButtonElement>(null);
   const [exporting, setExporting] = useState(false);
@@ -103,7 +105,12 @@ function Simulator({ fileService, visible }: { fileService: FileService; visible
   };
   const toggleRun = () => (runner.running ? runner.stop() : runner.start());
   const step = () => {
-    if (!runner.running) session().step();
+    if (runner.running) return;
+    const s = session();
+    // Sin ensamblar (o con el código cambiado), el primer Paso solo ensambla: el alumno ve el
+    // estado inicial y la próxima instrucción antes de ejecutar nada.
+    if (!s.machine || s.stale) s.assembleActive();
+    else s.step();
   };
   const back = () => {
     if (!runner.running) session().stepBack();
@@ -138,6 +145,8 @@ function Simulator({ fileService, visible }: { fileService: FileService; visible
     open: () => (ws ? void session().openFolder(ws) : openFromDisk(fileService)),
     save: () => void saveCurrent(),
     saveAs: ws ? () => void saveAs() : undefined,
+    // Ctrl+Shift+F: alterna entre la disposición elegida y "solo editor".
+    focus: () => setLayout(layout === 'foco' ? 'normal' : 'foco'),
   }, visible);
 
   /** Resultado de una operación de disco para el diálogo: '' si salió bien, si no el mensaje. */
@@ -204,7 +213,9 @@ function Simulator({ fileService, visible }: { fileService: FileService; visible
         <Notice />
         <ExerciseBar />
         {pausePrompt && <PauseBanner onContinue={() => afterPause(true)} onStop={() => afterPause(false)} />}
-        <main className={`work${ws && workspace ? ` with-files${filesCollapsed ? ' files-collapsed' : ''}` : ''}`}>
+        <main
+          className={`work layout-${layout}${ws && workspace ? ` with-files${filesCollapsed ? ' files-collapsed' : ''}` : ''}`}
+        >
           {ws && workspace && (
             <FileTree
               ws={ws}
@@ -223,6 +234,7 @@ function Simulator({ fileService, visible }: { fileService: FileService; visible
                 </span>
                 <span className="editor-tools">
                   <span className="kbd-hint">Esc y luego Tab salen del editor</span>
+                  <LayoutSwitch layout={layout} onChange={setLayout} />
                   <span className="font-size" role="group" aria-label="Tamaño de letra del editor">
                     <button
                       type="button"
@@ -254,7 +266,7 @@ function Simulator({ fileService, visible }: { fileService: FileService; visible
             </section>
             <Now />
           </div>
-          <div className="right">
+          <div className="right" hidden={layout === 'foco'}>
             <Registers />
             <Flags />
             <Memory />
@@ -296,5 +308,32 @@ function Simulator({ fileService, visible }: { fileService: FileService; visible
       )}
       <Announcer />
     </>
+  );
+}
+
+const LAYOUT_OPTIONS: Array<{ value: Layout; label: string; title: string; Icon: typeof Columns2 }> = [
+  { value: 'normal', label: 'Equilibrado', title: 'Editor y estado de la máquina en partes parecidas', Icon: Columns2 },
+  { value: 'amplio', label: 'Editor amplio', title: 'Más lugar para el editor; la columna derecha se angosta', Icon: PanelRightClose },
+  { value: 'foco', label: 'Solo editor', title: 'Oculta registros, banderas y memoria (Ctrl+Shift+F)', Icon: Maximize2 },
+];
+
+/** Selector de disposición: cuánto lugar ocupa el editor. */
+function LayoutSwitch({ layout, onChange }: { layout: Layout; onChange(l: Layout): void }) {
+  return (
+    <span className="layout-switch" role="radiogroup" aria-label="Tamaño del editor">
+      {LAYOUT_OPTIONS.map(({ value, label, title, Icon }) => (
+        <button
+          key={value}
+          type="button"
+          role="radio"
+          aria-checked={layout === value}
+          aria-label={label}
+          title={`${label}: ${title}`}
+          onClick={() => onChange(value)}
+        >
+          <Icon size={15} strokeWidth={1.6} aria-hidden="true" />
+        </button>
+      ))}
+    </span>
   );
 }

@@ -184,6 +184,7 @@ describe('contenido: usar el simulador y la entrega', () => {
     'Shift+F10': { key: 'F10', init: { shiftKey: true }, handler: 'back' },
     'Ctrl+S': { key: 's', init: { ctrlKey: true }, handler: 'save' },
     'Ctrl+O': { key: 'o', init: { ctrlKey: true }, handler: 'open' },
+    'Ctrl+Shift+F': { key: 'F', init: { ctrlKey: true, shiftKey: true }, handler: 'focus' },
   };
 
   function Probe({ spies }: { spies: Record<string, () => void> }) {
@@ -200,7 +201,7 @@ describe('contenido: usar el simulador y la entrega', () => {
     for (const k of documented.filter((d) => d !== 'F9' && d !== 'F2')) {
       const spec = HANDLER[k];
       expect(spec, `atajo sin verificar: ${k}`).toBeDefined();
-      const spies = Object.fromEntries(['assemble', 'toggleRun', 'step', 'back', 'open', 'save'].map((n) => [n, vi.fn()]));
+      const spies = Object.fromEntries(['assemble', 'toggleRun', 'step', 'back', 'open', 'save', 'focus'].map((n) => [n, vi.fn()]));
       const { unmount } = render(<Probe spies={spies} />);
       act(() => void fireEvent.keyDown(window, { key: spec!.key, ...spec!.init }));
       expect(spies[spec!.handler], k).toHaveBeenCalledTimes(1);

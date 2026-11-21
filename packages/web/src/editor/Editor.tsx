@@ -122,6 +122,14 @@ export function currentLineOf(asm: AssembleResult | null, machine: Machine | nul
   return asm.rows.find((r) => r.address === pc && r.instr)?.line ?? null;
 }
 
+/** Línea de la instrucción recién ejecutada (último paso); null antes del primer paso. */
+export function executedLineOf(asm: AssembleResult | null, machine: Machine | null, stale: boolean): number | null {
+  if (!asm || !machine || stale) return null;
+  const last = machine.lastStep();
+  if (!last || !last.instr) return null;
+  return asm.rows.find((r) => r.address === last.pc && r.instr)?.line ?? null;
+}
+
 const textOf = (fileId: string) => defaultSession.getState().files.find((f) => f.id === fileId)?.text ?? '';
 
 export function Editor({ fileId, fontSize }: { fileId: string; fontSize: number }): JSX.Element {
@@ -183,6 +191,7 @@ export function Editor({ fileId, fontSize }: { fileId: string; fontSize: number 
       ? {
           asmMessages: asm?.messages ?? [],
           currentLine: currentLineOf(asm, machine, stale),
+          executedLine: executedLineOf(asm, machine, stale),
           breakpointLines,
           stale,
         }

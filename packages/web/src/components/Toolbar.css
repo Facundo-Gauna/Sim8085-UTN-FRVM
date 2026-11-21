@@ -141,3 +141,22 @@
 .banner.pause p svg { color: var(--warning); flex: none; }
 .banner-actions { display: flex; gap: 8px; }
 @keyframes banner-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* ---- Una sola fila en pantallas comunes ---- */
+.tb-group.transport {
+  padding: 2px;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+}
+.tb-group.transport .btn { height: 30px; border-color: transparent; background: none; }
+.tb-group.transport .btn:hover:not(:disabled) { background: var(--surface-2); border-color: var(--line); }
+.tb-group.transport .btn.primary { background: var(--accent); border-color: var(--accent); }
+.tb-group.transport .btn:disabled { background: none; border-color: transparent; }
+.tb-group.delivery { padding-left: 12px; border-left: 1px solid var(--line); }
+.lbl-short { display: none; }
+@media (max-width: 1599px) {
+  .lbl-long { display: none; }
+  .lbl-short { display: inline; }
+}

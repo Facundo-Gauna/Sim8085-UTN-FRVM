@@ -231,6 +231,19 @@ describe('Editor: depuración', () => {
     expect(container.querySelector('.cm-sim-current')).toBeNull();
   });
 
+  it('marca la recién ejecutada aparte de la próxima: antes del primer paso no hay ejecutada', () => {
+    const { container, view } = mountSample();
+    act(() => s().assembleActive());
+    expect(specs(view).some((d) => d.kind === 'executed')).toBe(false);
+    expect(container.querySelector('.cm-sim-tag-current')?.textContent).toContain('próxima');
+    act(() => s().step());
+    expect(specs(view)).toContainEqual({ kind: 'executed', line: 2 });
+    expect(container.querySelector('.cm-sim-executed')?.textContent).toContain('LDA');
+    expect(container.querySelector('.cm-sim-ex-marker')?.textContent).toBe('✓');
+    act(() => s().stepBack());
+    expect(specs(view).some((d) => d.kind === 'executed')).toBe(false);
+  });
+
   it('el punto de corte aparece al alternarlo y se oculta con stale', () => {
     const { container, view, file } = mountSample();
     act(() => s().assembleActive());

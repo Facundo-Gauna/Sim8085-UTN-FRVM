@@ -9,8 +9,10 @@
 }
 .reg,
 .flag {
-  border: 1px solid var(--line-strong);
-  border-radius: 0;
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--bg);
   display: grid;
   align-content: start;
   gap: 2px;
@@ -55,7 +57,24 @@
 .reg.changed,
 .flag.changed {
   background: var(--changed-bg);
+  border-color: color-mix(in srgb, var(--ink) 30%, transparent);
   color: var(--ink);
+  animation: reg-flash 420ms ease-out;
+}
+/* Destello breve al cambiar: explica qué se movió en este paso (MASTER §1, movimiento que explica). */
+@keyframes reg-flash {
+  from { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent); }
+  to { box-shadow: 0 0 0 0 transparent; }
+}
+/* Acumulador: el registro protagonista lleva una barra de marca. */
+.reg.acc::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: var(--accent);
 }
 .reg.changed .k,
 .flag.changed .k {

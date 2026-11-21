@@ -29,20 +29,27 @@ body { overflow: hidden; }
 .panel {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 8px;
   overflow: hidden;
   min-width: 0;
 }
 
 /* Área de trabajo: editor dominante (~60 %) a la izquierda, estado de la máquina a la derecha. */
 .work {
+  --right-col: minmax(400px, 2fr);
   display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(400px, 2fr);
-  gap: 8px;
-  padding: 8px;
+  grid-template-columns: minmax(0, 3fr) var(--right-col);
+  gap: 10px;
+  padding: 10px;
   min-height: 0;
+  /* Retícula de hoja técnica, muy tenue: marco con identidad, datos limpios (MASTER §1). */
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--line) 45%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--line) 45%, transparent) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
-.left, .right { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; min-width: 0; min-height: 0; }
+.left, .right { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; min-width: 0; min-height: 0; }
 .left { grid-template-rows: minmax(0, 1fr) auto; }
 .right { grid-template-rows: max-content max-content minmax(200px, 1fr); overflow: auto; }
 
@@ -77,8 +84,29 @@ body { overflow: hidden; }
 
 /* Entre 1024 y 1280 px el panel derecho se angosta (la memoria pasa sola a 8 columnas). */
 @media (max-width: 1279px) {
-  .work { grid-template-columns: minmax(0, 3fr) minmax(320px, 2fr); }
+  .work { --right-col: minmax(320px, 2fr); }
 }
+
+/* Disposición elegida por el alumno: editor amplio (columna derecha angosta) o solo editor. */
+.work.layout-amplio { --right-col: minmax(300px, 1fr); }
+.work.layout-foco { --right-col: 0; }
+.work.layout-foco { grid-template-columns: minmax(0, 1fr); }
+.work.layout-foco > .right { display: none; }
+.work.layout-foco .left > .now { max-height: 28vh; }
+
+.layout-switch { display: inline-flex; flex: none; border: 1px solid var(--line-strong); border-radius: 4px; overflow: hidden; }
+.layout-switch button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 22px;
+  border: 0;
+  background: none;
+  color: var(--ink-muted);
+}
+.layout-switch button + button { border-left: 1px solid var(--line); }
+.layout-switch button:hover { color: var(--ink); background: var(--surface-2); }
+.layout-switch button[aria-checked="true"] { color: var(--on-chip); background: var(--chip); }
 
 /* El cajón no le quita al área de trabajo más de lo necesario en pantallas bajas. */
 .main > .drawer .drawer-body { max-height: min(240px, 22vh); }

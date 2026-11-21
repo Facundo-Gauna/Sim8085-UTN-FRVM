@@ -6,7 +6,7 @@ import { useSection } from '../../lib/useSection';
 import { useSession } from '../../state/store';
 import './exercises.css';
 
-const GROUPS: Exercise['group'][] = ['basico', 'catedra', 'adicional'];
+const GROUPS: Exercise['group'][] = ['basico', 'catedra', 'intermedio', 'adicional'];
 const h2 = (n: number) => n.toString(16).toUpperCase().padStart(2, '0') + 'h';
 const h4 = (n: number) => n.toString(16).toUpperCase().padStart(4, '0') + 'h';
 
@@ -20,11 +20,26 @@ export function ExercisesPage() {
   return (
     <section className="page exercises" aria-label="Ejercicios">
       <div className="ex-list">
-        {GROUPS.map((g) => (
-          <div key={g}>
-            <h2 className="caps">{GROUP_TITLES[g]}</h2>
+        <p className="ex-progress">
+          <span className="mono">{EXERCISES.filter((e) => solved.has(e.id)).length}</span> de{' '}
+          <span className="mono">{EXERCISES.length}</span> resueltos
+          <span className="ex-bar" aria-hidden="true">
+            <span style={{ width: `${(100 * EXERCISES.filter((e) => solved.has(e.id)).length) / EXERCISES.length}%` }} />
+          </span>
+        </p>
+        {GROUPS.map((g) => {
+          const items = EXERCISES.filter((e) => e.group === g);
+          const done = items.filter((e) => solved.has(e.id)).length;
+          return (
+          <div key={g} className="ex-group">
+            <h2 className="caps">
+              {GROUP_TITLES[g]}
+              <span className="ex-count mono" aria-hidden="true">
+                {done}/{items.length}
+              </span>
+            </h2>
             <ul aria-label={GROUP_TITLES[g]}>
-              {EXERCISES.filter((e) => e.group === g).map((e) => (
+              {items.map((e) => (
                 <li key={e.id}>
                   <button
                     type="button"
@@ -43,9 +58,14 @@ export function ExercisesPage() {
               ))}
             </ul>
           </div>
-        ))}
+          );
+        })}
       </div>
       <article className="ex-detail">
+        <span className="caps ex-kicker">
+          {GROUP_TITLES[ex.group]} · inicio {h4(ex.start)} · se comprueba con {ex.tests.length}{' '}
+          {ex.tests.length === 1 ? 'caso' : 'casos'}
+        </span>
         <h2>{ex.title}</h2>
         <p className="ex-statement">{ex.statement}</p>
         {ex.memory.length > 0 && (

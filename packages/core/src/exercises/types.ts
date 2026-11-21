@@ -10,7 +10,7 @@ export interface TestCase {
 
 export interface Exercise {
   id: string;
-  group: 'basico' | 'catedra' | 'adicional';
+  group: 'basico' | 'catedra' | 'intermedio' | 'adicional';
   title: string;
   statement: string;
   hint: string;

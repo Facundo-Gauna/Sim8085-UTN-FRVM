@@ -21,6 +21,7 @@ export const MAX_COMMENT = 80;
 
 export type DecorationSpec =
   | { kind: 'current'; line: number }
+  | { kind: 'executed'; line: number }
   | { kind: 'breakpoint'; line: number }
   | { kind: 'error'; line: number; message: string }
   | { kind: 'warning'; line: number; message: string }
@@ -29,6 +30,8 @@ export type DecorationSpec =
 export interface LineDecorationArgs {
   asmMessages: AsmMessage[];
   currentLine: number | null;
+  /** Línea de la instrucción recién ejecutada (el último paso); null antes del primer paso. */
+  executedLine?: number | null;
   breakpointLines: Set<number>;
   stale: boolean;
   commentLen: (line: number) => number;
@@ -42,6 +45,8 @@ export function lineDecorations(args: LineDecorationArgs): DecorationSpec[] {
   const out: DecorationSpec[] = [];
 
   if (!args.stale) {
+    const ex = args.executedLine ?? null;
+    if (ex !== null && inDoc(ex)) out.push({ kind: 'executed', line: ex });
     if (args.currentLine !== null && inDoc(args.currentLine)) out.push({ kind: 'current', line: args.currentLine });
     for (const l of [...args.breakpointLines].sort((a, b) => a - b)) {
       if (inDoc(l)) out.push({ kind: 'breakpoint', line: l });
@@ -89,11 +94,12 @@ export function commentLength(text: string): number {
 export interface SessionMarks {
   asmMessages: AsmMessage[];
   currentLine: number | null;
+  executedLine?: number | null;
   breakpointLines: Set<number>;
   stale: boolean;
 }
 
-export const NO_MARKS: SessionMarks = { asmMessages: [], currentLine: null, breakpointLines: new Set(), stale: false };
+export const NO_MARKS: SessionMarks = { asmMessages: [], currentLine: null, executedLine: null, breakpointLines: new Set(), stale: false };
 
 /** El Editor lo despacha cuando cambia la sesión (versión, stale, puntos de corte, ensamblado). */
 export const setDecorations = StateEffect.define<SessionMarks>();
@@ -130,6 +136,29 @@ class CommentCountWidget extends WidgetType {
 }
 
 const currentLineDeco = Decoration.line({ class: 'cm-sim-current' });
+const executedLineDeco = Decoration.line({ class: 'cm-sim-executed' });
+
+/** Etiqueta al final de la línea: "próxima" (PC) o "ejecutada" (último paso). */
+class StepTagWidget extends WidgetType {
+  constructor(readonly kind: 'current' | 'executed' | 'both') {
+    super();
+  }
+  eq(other: StepTagWidget) {
+    return other.kind === this.kind;
+  }
+  toDOM() {
+    const el = document.createElement('span');
+    el.className = `cm-sim-tag cm-sim-tag-${this.kind}`;
+    el.setAttribute('aria-hidden', 'true');
+    el.textContent =
+      this.kind === 'executed' ? '✓ recién ejecutada' : this.kind === 'current' ? '▶ próxima' : '✓ ejecutada · ▶ próxima';
+    el.title =
+      this.kind === 'executed'
+        ? 'Esta instrucción se acaba de ejecutar: los registros ya muestran su efecto'
+        : 'Esta instrucción se ejecuta con el próximo Paso (F10)';
+    return el;
+  }
+}
 
 /** Desde el primer carácter de código hasta antes del comentario (o la línea entera si no hay código). */
 function codeRange(text: string): [number, number] {
@@ -142,11 +171,24 @@ function codeRange(text: string): [number, number] {
 
 function build(doc: Text, specs: DecorationSpec[]): DecorationSet {
   const items: { from: number; to: number; deco: Decoration }[] = [];
+  const exLine = specs.find((x) => x.kind === 'executed')?.line;
+  const curLine = specs.find((x) => x.kind === 'current')?.line;
   for (const s of specs) {
     const line = doc.line(s.line);
     switch (s.kind) {
       case 'current':
         items.push({ from: line.from, to: line.from, deco: currentLineDeco });
+        items.push({
+          from: line.to,
+          to: line.to,
+          deco: Decoration.widget({ widget: new StepTagWidget(exLine === s.line ? 'both' : 'current'), side: 2 }),
+        });
+        break;
+      case 'executed':
+        items.push({ from: line.from, to: line.from, deco: executedLineDeco });
+        if (curLine !== s.line) {
+          items.push({ from: line.to, to: line.to, deco: Decoration.widget({ widget: new StepTagWidget('executed'), side: 2 }) });
+        }
         break;
       case 'error':
       case 'warning': {

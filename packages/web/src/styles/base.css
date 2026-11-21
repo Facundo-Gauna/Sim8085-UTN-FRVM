@@ -14,8 +14,21 @@ button { cursor: pointer; }
 }
 
 /* Cabecera de panel con número de referencia (01 REGISTROS, 02 BANDERAS…). */
-.panel-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
-.panel-h .caps b { color: var(--accent); font-weight: 600; margin-right: 6px; }
+.panel-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 38px; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+.panel-h .caps { color: var(--ink); }
+/* Número de referencia como etiqueta de pin: recuadro fino con el naranja de marca. */
+.panel-h .caps b {
+  display: inline-block;
+  min-width: 22px;
+  margin-right: 8px;
+  padding: 0 4px;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  border-radius: 2px;
+  color: var(--accent);
+  font: 600 10px/16px var(--mono);
+  letter-spacing: 0;
+  text-align: center;
+}
 
 /* Texto solo para lectores de pantalla. */
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }

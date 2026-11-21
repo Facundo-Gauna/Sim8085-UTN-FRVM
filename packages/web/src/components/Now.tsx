@@ -1,6 +1,6 @@
-import { byOpcode, type FlagName, type InstrDef } from '@sim8085/core';
+import { byOpcode, type AssembleResult, type Change, type FlagName, type InstrDef, type Machine } from '@sim8085/core';
 import { CheckCircle2, CircleAlert, Info } from 'lucide-react';
-import { fmt16 } from '../lib/format';
+import { fmt16, fmt8, type Base } from '../lib/format';
 import { useSession } from '../state/store';
 import './Now.css';
 
@@ -41,6 +41,54 @@ function FlagsLine({ flags }: { flags: FlagName[] }) {
         </span>
       ))}
     </span>
+  );
+}
+
+/** Efectos del último paso en palabras cortas: "A 00h → 3Ah", "leyó M[0040h] = 3Ah". */
+function effectsOf(m: Machine, base: Base): string[] {
+  const out: string[] = [];
+  const last = m.lastStep();
+  for (const c of m.lastChanges() as Change[]) {
+    if (c.kind === 'reg') {
+      if (c.name === 'PC') continue;
+      const f = c.name === 'SP' ? fmt16 : fmt8;
+      out.push(`${c.name}: ${f(c.before, base)} → ${f(c.after, base)}`);
+    } else if (c.kind === 'flag') out.push(`${c.name}: ${c.before} → ${c.after}`);
+    else out.push(`M[${fmt16(c.addr, 'hex')}]: ${fmt8(c.before, base)} → ${fmt8(c.after, base)}`);
+  }
+  if (last?.memRead !== undefined) out.push(`leyó M[${fmt16(last.memRead, 'hex')}] = ${fmt8(m.memory[last.memRead]!, base)}`);
+  return out;
+}
+
+/** Bloque "Recién ejecutada": qué instrucción corrió el último paso y qué cambió. */
+function LastStep({ machine, asm, text, base }: { machine: Machine; asm: AssembleResult; text: string; base: Base }) {
+  const last = machine.lastStep();
+  if (!last) {
+    return (
+      <div className="now-block now-last idle">
+        <span className="now-tag">Recién ejecutada</span>
+        <p className="muted">
+          Ninguna todavía: los registros muestran el estado inicial. Paso (F10) ejecuta la primera instrucción.
+        </p>
+      </div>
+    );
+  }
+  const src = last.instr ? sourceOf(text, asm.addressToLine.get(last.pc)) || formOf(last.instr) : (last.note ?? 'Interrupción');
+  const effects = effectsOf(machine, base);
+  return (
+    <div className="now-block now-last">
+      <span className="now-tag">✓ Recién ejecutada · {fmt16(last.pc, base)}</span>
+      <span className="now-instr">{src}</span>
+      {effects.length > 0 ? (
+        <ul className="now-effects" aria-label="Efectos de la instrucción">
+          {effects.map((e) => (
+            <li key={e}>{e}</li>
+          ))}
+        </ul>
+      ) : (
+        <span className="flagnote">No cambió registros, banderas ni memoria (solo avanzó el PC)</span>
+      )}
+    </div>
   );
 }
 
@@ -98,6 +146,7 @@ export function Now() {
       const src = sourceOf(text, asm.addressToLine.get(live.cpu.PC));
       body = (
         <>
+          <span className="now-tag next">▶ Próxima · se ejecuta con Paso</span>
           <strong>{src || formOf(def)}</strong>
           <p>{def.summary}</p>
           <FlagsLine flags={def.flags} />
@@ -115,7 +164,10 @@ export function Now() {
         <span className="caps"><b aria-hidden="true">→</b>Ahora</span>
         {pc !== null && <span className="caps">PC {fmt16(pc, base)}</span>}
       </header>
-      <div className="now-body">{body}</div>
+      <div className={live ? 'now-body split' : 'now-body'}>
+        {live && asm && <LastStep machine={live} asm={asm} text={text} base={base} />}
+        <div className="now-block now-next">{body}</div>
+      </div>
     </section>
   );
 }
