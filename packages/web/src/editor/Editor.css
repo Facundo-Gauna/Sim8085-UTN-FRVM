@@ -58,6 +58,16 @@
   background: var(--line-strong);
 }
 
+/* Dirección de memoria de cada línea: más tenue que el código, alineada a la derecha. */
+.editor .cm-sim-addr-gutter .cm-gutterElement {
+  padding: 0 4px 0 8px;
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
+
 /* Margen del PC: flecha ▶ en la línea actual. */
 .editor .cm-sim-pc-gutter .cm-gutterElement {
   width: 18px;

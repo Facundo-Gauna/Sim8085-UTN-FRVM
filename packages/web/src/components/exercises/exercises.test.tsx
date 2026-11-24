@@ -15,14 +15,14 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('ExercisesPage', () => {
-  it('lista los cuatro grupos con los 5 ejercicios de la cátedra', () => {
+  it('lista los cuatro grupos con los 9 ejercicios de la cátedra', () => {
     render(<ExercisesPage />);
     const region = screen.getByRole('region', { name: 'Ejercicios' });
     for (const g of ['Básicos', 'De la cátedra (GTP05)', 'Intermedios (saltos y lazos)', 'Adicionales']) {
       expect(within(region).getByRole('heading', { name: g })).toBeTruthy();
     }
     const cat = within(region).getByRole('list', { name: 'De la cátedra (GTP05)' });
-    expect(within(cat).getAllByRole('button')).toHaveLength(5);
+    expect(within(cat).getAllByRole('button')).toHaveLength(9);
   });
 
   it('elegir un ejercicio muestra enunciado y datos iniciales; la pista está oculta', () => {

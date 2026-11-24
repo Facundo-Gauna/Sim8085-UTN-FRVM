@@ -1,5 +1,5 @@
 /**
- * Márgenes de depuración (como el mockup): punto de corte | número | ▶.
+ * Márgenes del editor: punto de corte | número | dirección | ▶.
  *
  * - Margen de puntos de corte: un clic (o F9 en la línea del cursor) llama a
  *   `onToggle(línea)`. El círculo lo dibuja `decorationSpecs`, que sale de
@@ -9,6 +9,7 @@
  */
 import { RangeSet, type ChangeSet, type Extension, type Text } from '@codemirror/state';
 import { gutter, GutterMarker, keymap, lineNumbers, type EditorView } from '@codemirror/view';
+import { addressGutter } from './addresses';
 import { decorationSpecs } from './decorations';
 
 class BreakpointMarker extends GutterMarker {
@@ -94,7 +95,7 @@ export function remapBreakpointLines(lines: Set<number>, changes: ChangeSet, old
   return out;
 }
 
-export function debugGutters(onToggle: ((line: number) => void) | undefined): Extension {
+export function debugGutters(onToggle: ((line: number) => void) | undefined, startAddress = 0x2000): Extension {
   const toggleAt = (view: EditorView, pos: number) => {
     if (!onToggle) return false;
     onToggle(view.state.doc.lineAt(pos).number);
@@ -111,6 +112,7 @@ export function debugGutters(onToggle: ((line: number) => void) | undefined): Ex
       },
     }),
     lineNumbers(),
+    addressGutter(startAddress),
     gutter({
       class: 'cm-sim-pc-gutter',
       markers: (view) => {

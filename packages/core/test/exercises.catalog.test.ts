@@ -10,6 +10,10 @@ const SOLUTIONS: Record<string, string> = {
   'gtp05-3': 'LDA 3000H\nMOV B, A\nLDA 3001H\nORA B\nSTA 3002H\nHLT',
   'gtp05-4': 'LDA 300AH\nANI 0F0H\nSTA 300AH\nHLT',
   'gtp05-5': 'LDA 2040H\nADI 0A1H\nSTA 2041H\nHLT',
+  'gtp05-6': 'LDA 2000H\nMOV B, A\nLDA 2001H\nADD B\nMOV B, A\nLDA 2002H\nCMP B\nJNZ FIN\nSTA 2003H\nFIN: HLT',
+  'gtp05-7': 'LHLD 2000H\nMOV A, M\nINX H\nADD M\nINX H\nMOV M, A\nHLT',
+  'gtp05-8': 'LHLD 2000H\nMOV A, M\nADD A\nADD A\nINX H\nMOV M, A\nHLT',
+  'gtp05-9': 'LHLD 2000H\nMOV A, M\nORA A\nMVI B, 01H\nJPE FIN\nINR M\nMVI B, 02H\nFIN: INX H\nMOV M, B\nHLT',
   'basico-cargar': 'MVI A, 5AH\nSTA 3000H\nHLT',
   'basico-copiar': 'LDA 3000H\nSTA 3001H\nHLT',
   'basico-incrementar': 'LDA 3000H\nINR A\nSTA 3001H\nHLT',
@@ -56,7 +60,7 @@ const check = (id: string, src: string, start?: number) => {
 describe('catálogo', () => {
   it('ids únicos y grupos esperados', () => {
     expect(new Set(EXERCISES.map((e) => e.id)).size).toBe(EXERCISES.length);
-    expect(EXERCISES.filter((e) => e.group === 'catedra')).toHaveLength(5);
+    expect(EXERCISES.filter((e) => e.group === 'catedra')).toHaveLength(9);
     expect(EXERCISES.filter((e) => e.group === 'basico').length).toBeGreaterThanOrEqual(5);
     expect(EXERCISES.filter((e) => e.group === 'adicional').length).toBeGreaterThanOrEqual(5);
     expect(getExercise('gtp05-1')).toBeDefined();
@@ -112,5 +116,25 @@ describe('catálogo', () => {
     const ex = getExercise('gtp05-4')!;
     expect(ex.tests.map((t) => [t.memory[0]![1], t.expect[0]![1]])).toEqual([[0xb7, 0xb0], [0x0f, 0], [0xf0, 0xf0], [0x5a, 0x50]]);
     expect(ex.hint).toMatch(/nibble alto/i);
+  });
+
+  it('GTP05 ej. 6: guardar siempre el tercer valor no pasa', () => {
+    const always = 'LDA 2002H\nSTA 2003H\nHLT';
+    expect(check('gtp05-6', always).ok).toBe(false);
+  });
+
+  it('GTP05 ej. 7 a 9: fijar la dirección 4000h en vez de leer el puntero no pasa', () => {
+    for (const id of ['gtp05-7', 'gtp05-8', 'gtp05-9']) {
+      const fixed = SOLUTIONS[id]!.replace('LHLD 2000H', 'LXI H, 4000H');
+      expect(check(id, fixed).ok, id).toBe(false);
+    }
+  });
+
+  it('GTP05 ej. 9: los datos dan igual con paridad de bits y con número par', () => {
+    for (const t of getExercise('gtp05-9')!.tests) {
+      const value = t.memory[2]![1];
+      const ones = value.toString(2).split('1').length - 1;
+      expect(ones % 2, String(value)).toBe(value % 2);
+    }
   });
 });

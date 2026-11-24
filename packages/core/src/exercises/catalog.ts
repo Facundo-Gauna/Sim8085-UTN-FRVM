@@ -26,6 +26,24 @@ const unary = (src: number, dst: number, cases: Pair[]): TestCase[] =>
 const binary = (a1: number, a2: number, dst: number, cases: [number, number, number][]): TestCase[] =>
   cases.map(([x, y, r]) => tc([[a1, x], [a2, y]], [[dst, r]]));
 
+/** GTP05 6: 2003h arranca con una marca (EEh) cuando la suma no coincide, y debe quedar igual. */
+const sumCheck = (a: number, b: number, c: number): TestCase => {
+  const equal = a + b === c;
+  const memory: Pair[] = [[0x2000, a], [0x2001, b], [0x2002, c]];
+  if (!equal) memory.push([0x2003, 0xee]);
+  return tc(memory, [[0x2003, equal ? c : 0xee]]);
+};
+
+/** GTP05 7–9: en 2000h–2001h va la dirección `p` (byte bajo primero) y a partir de `p`, los datos. */
+const pointed = (p: number, data: number[], expect: Pair[]): TestCase =>
+  tc([[0x2000, p & 0xff], [0x2001, p >> 8], ...data.map((b, i): Pair => [p + i, b])], expect);
+
+/** GTP05 9: par → 1 en p+1; impar → p vale uno más y 2 en p+1. */
+const parity = (p: number, value: number): TestCase => {
+  const even = value % 2 === 0; // los datos elegidos coinciden con la paridad de bits
+  return pointed(p, [value], [[p, even ? value : value + 1], [p + 1, even ? 1 : 2]]);
+};
+
 const hexes = (bytes: number[]) => bytes.map((b) => b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
 const block = (addr: number, bytes: number[]): Pair[] => bytes.map((b, i) => [addr + i, b]);
 const SEQ16 = Array.from({ length: 16 }, (_, i) => i + 1);
@@ -65,6 +83,54 @@ export const EXERCISES: readonly Exercise[] = [
       'En el lugar de memoria 2040h existe un valor al que se le debe sumar el valor A1h y posteriormente almacenarlo en el lugar de memoria 2041h.',
     hint: 'Hay una suma con dato inmediato; recordá que un valor hexa que empieza con letra lleva un 0 adelante.',
     tests: unary(0x2040, 0x2041, [[0x00, 0xa1], [0x5f, 0x00], [0xff, 0xa0], [0x3a, 0xdb]]),
+  }),
+  make({
+    id: 'gtp05-6', group: 'catedra', title: 'GTP05 · 6', start: 0x1000,
+    statement:
+      'En las posiciones de memoria 2000h, 2001h y 2002h se encuentran 3 valores, deben sumarse los primeros y compararse con el tercer valor. Si la suma es equivalente al tercer valor almacenar el mismo en la posición 2003h; de lo contrario no almacenar valores.',
+    hint: 'Se suman los dos primeros (2000h y 2001h). Comparar con CMP deja Z = 1 si son iguales: saltá por encima del guardado cuando no lo sean. Los datos viven en 2000h, así que empezá el programa en otra dirección.',
+    tests: [
+      sumCheck(0x10, 0x20, 0x30),
+      sumCheck(0x10, 0x20, 0x31),
+      sumCheck(0x05, 0x0a, 0x0f),
+      sumCheck(0x01, 0x02, 0x00),
+    ],
+  }),
+  make({
+    id: 'gtp05-7', group: 'catedra', title: 'GTP05 · 7', start: 0x1000,
+    statement:
+      'En las posiciones 2000h y 2001h se encuentra la dirección de memoria donde existe un valor que debe ser sumado al valor de la siguiente dirección de memoria y almacenado en la próxima dirección. Ej: 2000h y 2001h contienen 00 y 40 respectivamente, significa que en la dirección de memoria 4000h se encuentra el primer valor, en la 4001h el siguiente valor y debe almacenarse en 4002h.',
+    hint: 'La dirección está con el byte bajo primero: hay una instrucción que carga HL directamente desde dos posiciones seguidas. Después recorré con HL como puntero. Si la suma desborda, se descarta el acarreo.',
+    tests: [
+      pointed(0x4000, [0x12, 0x34], [[0x4002, 0x46]]),
+      pointed(0x3050, [0x01, 0x02], [[0x3052, 0x03]]),
+      pointed(0x25fe, [0xf0, 0x20], [[0x2600, 0x10]]),
+    ],
+  }),
+  make({
+    id: 'gtp05-8', group: 'catedra', title: 'GTP05 · 8', start: 0x1000,
+    statement:
+      'Obtener el valor alojado en la posición de memoria almacenada en la posición 2000h (es decir, el número a multiplicar no se encuentra en 2000h sino que 2000h apunta a la dirección que lo contiene), multiplicar por 4 y almacenar el valor en la siguiente posición.',
+    hint: 'La dirección ocupa 2000h–2001h (byte bajo primero) y la «siguiente posición» es la que sigue al número, no a 2000h; esta interpretación está pendiente de confirmar con la cátedra. Multiplicar por 4 es duplicar dos veces.',
+    tests: [
+      pointed(0x4000, [0x05], [[0x4001, 0x14]]),
+      pointed(0x3050, [0x3f], [[0x3051, 0xfc]]),
+      pointed(0x25ff, [0x00], [[0x2600, 0x00]]),
+    ],
+  }),
+  make({
+    id: 'gtp05-9', group: 'catedra', title: 'GTP05 · 9', start: 0x1000,
+    statement:
+      'Obtener el valor alojado en la posición de memoria almacenada en la posición 2000h; si su paridad es par almacenar un valor 1 en la siguiente posición; de lo contrario sumar 1, reemplazarlo en memoria y almacenar el valor 2 en la siguiente posición.',
+    hint: 'La dirección ocupa 2000h–2001h (byte bajo primero). «Paridad par» es la bandera P (cantidad par de bits en 1), interpretación pendiente de confirmar con la cátedra. MOV no actualiza banderas: usá ORA A antes del salto.',
+    tests: [
+      parity(0x4000, 0x06),
+      parity(0x3050, 0x07),
+      parity(0x25ff, 0x01),
+      parity(0x4000, 0x00),
+      parity(0x3050, 0x7f),
+      parity(0x25ff, 0xc0),
+    ],
   }),
 
   make({

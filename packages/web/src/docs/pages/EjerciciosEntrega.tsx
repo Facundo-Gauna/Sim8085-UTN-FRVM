@@ -5,7 +5,7 @@ export function EjerciciosEntrega() {
     <>
       <h2>Ejercicios</h2>
       <p>
-        La sección Ejercicios tiene tres grupos: básicos, los cinco de la cátedra (GTP05) y adicionales. Cada
+        La sección Ejercicios tiene cuatro grupos: básicos, los nueve de la cátedra (GTP05), intermedios y adicionales. Cada
         ejercicio trae el enunciado, los datos iniciales ya cargados en memoria y una pista que se muestra solo si la
         pedís. <strong>Resolver en el simulador</strong> abre un archivo nuevo con la dirección de inicio del ejercicio;
         el botón <strong>Comprobar</strong> ejecuta tu programa con varios casos de prueba y, si falla, te dice en cuál
@@ -16,6 +16,11 @@ export function EjerciciosEntrega() {
         En el ejercicio 4 de GTP05, «la parte más significativa» se interpreta como el <strong>nibble alto</strong>{' '}
         conservado en su lugar y el bajo en cero (<code>B7h</code> pasa a <code>B0h</code>). Es una interpretación
         pendiente de confirmar con la cátedra.
+      </p>
+      <p>
+        En los ejercicios 8 y 9, la dirección apuntada ocupa <code>2000h</code>–<code>2001h</code> (byte bajo primero)
+        y «la siguiente posición» es la que sigue al número. En el 9, «paridad par» es la bandera P. También están
+        pendientes de confirmar.
       </p>
       <Asm>{`        LDA 0040H       ; A ← M[0040h]
         CMA             ; A = NOT A

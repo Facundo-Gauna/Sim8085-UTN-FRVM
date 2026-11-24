@@ -28,6 +28,7 @@ import {
 import { indentUnit } from '@codemirror/language';
 import type { AssembleResult, Machine } from '@sim8085/core';
 import { defaultSession, useSession } from '../state/store';
+import { setStartAddressEffect } from './addresses';
 import { asmLanguage } from './asmLanguage';
 import { debugGutters, remapBreakpointLines } from './breakpoints';
 import { externalSync } from './sync';
@@ -67,6 +68,8 @@ export interface EditorExtensionOptions {
   onChange: (text: string) => void;
   /** Clic en el margen de puntos de corte o F9: línea (1-based) a alternar. */
   onToggleBreakpoint?: (line: number) => void;
+  /** Dirección de inicio con la que arranca la columna de direcciones. */
+  startAddress?: number;
   /**
    * Puntos de corte que siguen a su instrucción: en cada cambio del usuario se
    * corren con el cambio y, si cambiaron, se publican con `set`.
@@ -77,7 +80,7 @@ export interface EditorExtensionOptions {
 /** Todas las extensiones del editor en un solo lugar (Task 6 suma las suyas acá). */
 export function buildExtensions(opts: EditorExtensionOptions): Extension[] {
   return [
-    debugGutters(opts.onToggleBreakpoint),
+    debugGutters(opts.onToggleBreakpoint, opts.startAddress),
     debugDecorations,
     highlightActiveLineGutter(),
     highlightActiveLine(),
@@ -143,6 +146,7 @@ export function Editor({ fileId, fontSize }: { fileId: string; fontSize: number 
   const stale = useSession((s) => s.stale);
   const breakpointLines = useSession((s) => s.breakpointLines);
   const version = useSession((s) => s.version);
+  const startAddress = useSession((s) => s.startAddress);
 
   useEffect(() => {
     const view = new EditorView({
@@ -151,6 +155,7 @@ export function Editor({ fileId, fontSize }: { fileId: string; fontSize: number 
         doc: textOf(fileId),
         // setText se lee en cada cambio (no se captura una versión vieja del store).
         extensions: buildExtensions({
+          startAddress: defaultSession.getState().startAddress,
           onChange: (t) => defaultSession.getState().setText(fileId, t),
           breakpoints: {
             // Solo el archivo activo tiene puntos de corte.
@@ -198,6 +203,10 @@ export function Editor({ fileId, fontSize }: { fileId: string; fontSize: number 
       : { asmMessages: [], currentLine: null, breakpointLines: new Set(), stale: false };
     view.dispatch({ effects: setDecorations.of(marks) });
   }, [fileId, isActive, version, stale, breakpointLines, asm, machine]);
+
+  useEffect(() => {
+    viewRef.current?.dispatch({ effects: setStartAddressEffect.of(startAddress) });
+  }, [startAddress, fileId]);
 
   const size = Math.min(FONT_MAX, Math.max(FONT_MIN, Math.round(fontSize)));
   useEffect(() => {

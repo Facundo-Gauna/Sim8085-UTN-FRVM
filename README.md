@@ -14,12 +14,12 @@ Funciona **en el navegador, sin instalar nada**, y también como **aplicación d
 | --- | --- |
 | Ver qué hace cada instrucción, en lenguaje simple, mientras ejecuta paso a paso (y hacia atrás). | Usa la **misma terminología y el mismo Set de Instrucciones** que el manual de la cátedra. Lo que no figura ahí se marca como «fuera de la cátedra». |
 | Errores del ensamblador en español, subrayados mientras escribe. | La hoja de entrega sale en PDF con el **encabezado y las columnas de la plantilla oficial** (Dirección / Mnemónico / OP.CODE / Observación). |
-| Practicar con ejercicios que se corrigen solos. | Incluye los ejercicios del GTP05 de la cátedra, más básicos y adicionales (17 en total). |
+| Practicar con ejercicios que se corrigen solos. | Incluye los ejercicios del GTP05 de la cátedra, más básicos, intermedios y adicionales (36 en total). |
 | Consultar la documentación sin salir de la app. | No hay datos personales ni telemetría: se puede usar sin firmar ni aceptar nada. |
 
 ## Qué incluye
 
-- **Editor** con pestañas, resaltado, autocompletado de instrucciones, ayuda al pasar el mouse y puntos de corte.
+- **Editor** con pestañas, la **dirección de memoria de cada línea** a la vista, resaltado, autocompletado de instrucciones, ayuda al pasar el mouse y puntos de corte.
 - **Ensamblador** completo: etiquetas, `ORG`, `EQU`, `DB`, `DW`, `DS`, macros y números en hexadecimal, binario y decimal.
 - **Ejecución**: todo de una vez, paso a paso, **paso atrás**, velocidad regulable, y aviso ante posibles bucles infinitos.
 - **Estado de la máquina**: registros A, B, C, D, E, H, L, pares, PC y SP; banderas S, Z, AC, P y CY; memoria de 64 KB editable; pila; puertos de entrada y salida; interrupciones (TRAP, RST 7.5, 6.5 y 5.5). Los valores cambian entre hexa, decimal y binario, y lo que se modificó en cada paso queda resaltado.
@@ -51,7 +51,7 @@ La versión de escritorio agrega un **panel de archivos**: se abre una carpeta d
 - El **Set de Instrucciones** y los nombres de registros, banderas y modos de direccionamiento siguen el manual de la cátedra.
 - La documentación de instrucciones se genera desde la misma tabla que usa el simulador, así que lo que se explica es lo que se ejecuta.
 - El simulador **no detecta** si las observaciones del PDF las escribió el alumno o las generó el autocompletado.
-- Está **pendiente de confirmar con la cátedra** la consigna del ejercicio 4 del trabajo práctico 5 (se interpretó como «nibble alto», `B7h → B0h`).
+- Está **pendiente de confirmar con la cátedra** la lectura de algunas consignas del trabajo práctico 5: en el ejercicio 4, «parte más significativa» es el nibble alto (`B7h → B0h`); en el 8 y el 9, la dirección apuntada ocupa 2000h–2001h y «la siguiente posición» es la que sigue al número; en el 9, «paridad» es la bandera P.
 - Cualquier diferencia entre el simulador y el manual se considera un error del simulador: se puede reportar en [Issues](https://github.com/Facundo-Gauna/Sim8085-UTN-FRVM/issues).
 
 ## Para desarrollar

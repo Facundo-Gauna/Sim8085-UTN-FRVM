@@ -10,6 +10,12 @@ export function UsarSimulador() {
         una explicación al pasar el mouse sobre una instrucción. El campo <strong>Inicio</strong>, junto a Ensamblar,
         es la dirección donde se ubica el primer byte del programa.
       </p>
+      <p>
+        A la izquierda del código, junto al número de línea, el editor muestra la <strong>dirección de memoria</strong>{' '}
+        donde empieza cada línea. Se actualiza mientras escribís. Si una instrucción está mal escrita, las direcciones
+        de abajo pueden quedar corridas hasta que la corrijas. Para los saltos no hace falta calcularlas: podés usar
+        etiquetas (<code>LAZO:</code> … <code>JNZ LAZO</code>).
+      </p>
       <Asm>{`        MVI A, 05H      ; A ← 05h
         MOV B, A        ; B ← A
         ADD B           ; A ← A + B
