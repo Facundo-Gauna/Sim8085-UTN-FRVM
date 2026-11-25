@@ -72,7 +72,7 @@ npm test -w @sim8085/web           # pruebas de la web
 npm run build -w @sim8085/desktop  # instaladores del sistema actual (requiere Rust)
 ```
 
-Las especificaciones y los planes de implementación están en `docs/superpowers/`. Para publicar una versión se crea un tag `vX.Y.Z`: GitHub Actions compila Linux y Windows y publica los instaladores en un release.
+Las especificaciones y los planes de implementación están en `docs/superpowers/`. Para publicar una versión se actualiza el número en `tauri.conf.json`, `Cargo.toml` y `Cargo.lock` y se crea un tag `vX.Y.Z` con ese mismo número: GitHub Actions compila Linux y Windows, publica los instaladores en un release y actualiza en `main` los enlaces de descarga de la web.
 
 ## Licencia
 

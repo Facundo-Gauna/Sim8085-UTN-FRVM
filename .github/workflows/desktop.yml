@@ -1,6 +1,5 @@
 # Compila la app de escritorio en Linux y Windows y deja los instaladores como artefactos.
-# Para publicarlos en la web: bajar los artefactos, correr `node packages/desktop/scripts/collect-downloads.mjs`
-# (o usar --base-url si se alojan fuera) y desplegar.
+# Con un tag v*, además publica el release y actualiza los enlaces de descarga de la web.
 name: desktop
 
 on:
@@ -70,3 +69,35 @@ jobs:
         with:
           files: instaladores/*
           fail_on_unmatched_files: false
+
+  # Apunta los botones de descarga de la web al release recién publicado.
+  # Solo corre si compilaron los dos sistemas y el release se publicó.
+  manifest:
+    needs: [build, release]
+    if: success() && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: instaladores-*
+          path: ${{ runner.temp }}/instaladores
+          merge-multiple: true
+      - name: Actualizar el manifiesto de descargas
+        run: >
+          node packages/desktop/scripts/update-manifest.mjs
+          --bundles "$RUNNER_TEMP/instaladores"
+          --version "${GITHUB_REF_NAME#v}"
+          --base-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/"
+      - name: Commit y push a main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "feat(web): manifiesto de descargas apuntando al release $GITHUB_REF_NAME" packages/web/public/downloads/manifest.json
+          git pull --rebase
+          git push
