@@ -1,66 +1,66 @@
 {
-  "version": "0.1.1",
-  "generated": "2026-11-17T02:04:11.066Z",
+  "version": "0.3.0",
+  "generated": "2026-11-25T20:47:12.321Z",
   "files": [
     {
       "os": "linux",
       "kind": "appimage",
       "label": "Linux · AppImage",
-      "file": "Sim8085_0.1.1_amd64.AppImage",
-      "url": "https://github.com/Facundo-Gauna/Sim8085-UTN-FRVM/releases/download/v0.1.1/Sim8085_0.1.1_amd64.AppImage",
-      "size": 81656312,
-      "sha256": "23b8f423dc4031a852e4e90c2aa00c994d16e52c0b8300a86bd70fd6c8f6d8af",
-      "version": "0.1.1"
+      "file": "Sim8085_0.3.0_amd64.AppImage",
+      "url": "https://github.com/Facundo-Gauna/Sim8085-UTN-FRVM/releases/download/v0.3.0/Sim8085_0.3.0_amd64.AppImage",
+      "size": 81660408,
+      "sha256": "7023d519bb60cdfe9c1381ab02d7f5e5a4e3346314be5151454bc59c7f27f99b",
+      "version": "0.3.0"
     },
     {
       "os": "linux",
       "kind": "deb",
       "label": "Linux · paquete .deb",
-      "file": "Sim8085_0.1.1_amd64.deb",
-      "url": "https://github.com/Facundo-Gauna/Sim8085-UTN-FRVM/releases/download/v0.1.1/Sim8085_0.1.1_amd64.deb",
-      "size": 3091450,
-      "sha256": "383f8adb63c36f0bdd7cc8f9e7d3dcccae3e86729dffdefcd0085402b0caf83e",
-      "version": "0.1.1"
+      "file": "Sim8085_0.3.0_amd64.deb",
+      "url": "https://github.com/Facundo-Gauna/Sim8085-UTN-FRVM/releases/download/v0.3.0/Sim8085_0.3.0_amd64.deb",
+      "size": 3098622,
+      "sha256": "abd8126516af946bd9be9871f335f5c07db9fe55d43d3fe018e2aa9d8507136e",
+      "version": "0.3.0"
     },
     {
       "os": "linux",
       "kind": "rpm",
       "label": "Linux · paquete .rpm",
-      "file": "Sim8085-0.1.1-1.x86_64.rpm",
-      "url": "https://github.com/Facundo-Gauna/Sim8085-UTN-FRVM/releases/download/v0.1.1/Sim8085-0.1.1-1.x86_64.rpm",
-      "size": 3099178,
-      "sha256": "0bc6a28109249b439a4a0435ccfae55e856187d32776d24a5293e961f3a0f350",
-      "version": "0.1.1"
+      "file": "Sim8085-0.3.0-1.x86_64.rpm",
+      "url": "https://github.com/Facundo-Gauna/Sim8085-UTN-FRVM/releases/download/v0.3.0/Sim8085-0.3.0-1.x86_64.rpm",
+      "size": 3105264,
+      "sha256": "e7cf6829abf65244ce5721acbfb4cdd96f4083502545d49d287df71f148d85c5",
+      "version": "0.3.0"
     },
     {
       "os": "windows",
       "kind": "nsis",
       "label": "Windows · instalador (.exe)",
-      "file": "Sim8085_0.1.1_x64-setup.exe",
-      "url": "https://github.com/Facundo-Gauna/Sim8085-UTN-FRVM/releases/download/v0.1.1/Sim8085_0.1.1_x64-setup.exe",
-      "size": 2829683,
-      "sha256": "ecab0f618fc57623436c31c903e718ea9a0c4dd75dda0aa891e132b0fa68bb12",
-      "version": "0.1.1"
+      "file": "Sim8085_0.3.0_x64-setup.exe",
+      "url": "https://github.com/Facundo-Gauna/Sim8085-UTN-FRVM/releases/download/v0.3.0/Sim8085_0.3.0_x64-setup.exe",
+      "size": 2840924,
+      "sha256": "c9d47b1e6541df3d478d4787aa049e1d329b1ec32df6636959d40cc98afa5032",
+      "version": "0.3.0"
     },
     {
       "os": "windows",
       "kind": "portable",
       "label": "Windows · portable (.zip, sin instalar)",
-      "file": "Sim8085_0.1.1_x64-portable.zip",
-      "url": "https://github.com/Facundo-Gauna/Sim8085-UTN-FRVM/releases/download/v0.1.1/Sim8085_0.1.1_x64-portable.zip",
-      "size": 3363526,
-      "sha256": "02c88c562063e5720654cc352abfb3973854fbf43d58d69140db4bfec16f78fe",
-      "version": "0.1.1"
+      "file": "Sim8085_0.3.0_x64-portable.zip",
+      "url": "https://github.com/Facundo-Gauna/Sim8085-UTN-FRVM/releases/download/v0.3.0/Sim8085_0.3.0_x64-portable.zip",
+      "size": 3370173,
+      "sha256": "89955d8a51dc7b33f3f55f2539d6507394eef9c4c95689d19797e81bc690deb9",
+      "version": "0.3.0"
     },
     {
       "os": "windows",
       "kind": "msi",
       "label": "Windows · instalador (.msi)",
-      "file": "Sim8085_0.1.1_x64_en-US.msi",
-      "url": "https://github.com/Facundo-Gauna/Sim8085-UTN-FRVM/releases/download/v0.1.1/Sim8085_0.1.1_x64_en-US.msi",
-      "size": 3592192,
-      "sha256": "eee3857c56bb57349da1b70cb295bb5f3dbda4148caaabda17a81d379efc7c5c",
-      "version": "0.1.1"
+      "file": "Sim8085_0.3.0_x64_en-US.msi",
+      "url": "https://github.com/Facundo-Gauna/Sim8085-UTN-FRVM/releases/download/v0.3.0/Sim8085_0.3.0_x64_en-US.msi",
+      "size": 3600384,
+      "sha256": "50c79cea61451f1b5ed22b04918da90d15abba637f3031e391abb2936c530290",
+      "version": "0.3.0"
     }
   ]
 }
