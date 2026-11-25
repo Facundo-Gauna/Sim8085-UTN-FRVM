@@ -1,6 +1,6 @@
 [package]
 name = "sim8085-desktop"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "Simulador educativo del Intel 8085 (app de escritorio)"
 
